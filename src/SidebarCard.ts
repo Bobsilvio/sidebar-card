@@ -632,17 +632,36 @@ export class SidebarCard extends LitElement {
       }
 
       case 'service-js': {
-        if (tapAction.service) {
+        if (tapAction?.service) {
           try {
-            const code = tapAction.service.toString().replace(/^\[\[\[\s*|\s*\]\]\]$/g, '');
+            const code = String(tapAction.service).replace(
+              /^\[\[\[\s*|\s*\]\]\]$/g,
+              '',
+            );
+            // eslint-disable-next-line no-new-func
             const func = new Function(code);
             func.call(this);
             forwardHaptic('success');
-          } catch (err) {
+          } catch (_err) {
             forwardHaptic('failure');
           }
         } else {
-          error2console('service-js', 'no service code found');
+          forwardHaptic('failure');
+        }
+        break;
+      }
+
+      case 'toggle-sidebar': {
+        try {
+          const w = window as any;
+          if (w && typeof w.silvioToggleHaSidebar === 'function') {
+            w.silvioToggleHaSidebar();
+            forwardHaptic('success');
+          } else {
+            forwardHaptic('failure');
+          }
+        } catch (_err) {
+          forwardHaptic('failure');
         }
         break;
       }

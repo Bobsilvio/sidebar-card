@@ -29,6 +29,61 @@ const SIDEBAR_CARD_VERSION = '1.0';
 
 let ALREADY_BUILT = false;
 
+// --- Runtime toggle della sidebar originale di Home Assistant ---
+// Usa i metodi helper già importati: getSidebar, getAppDrawerLayout, getAppDrawer
+
+function setHassSidebarVisible(visible: boolean) {
+  const hassSidebar = getSidebar();
+  const appDrawerLayout = getAppDrawerLayout();
+  const appDrawer = getAppDrawer();
+
+  if (!hassSidebar || !appDrawerLayout || !appDrawer) {
+    return;
+  }
+
+  if (visible) {
+    // Ripristino: lascio che sia il CSS di HA a fare il suo lavoro
+    hassSidebar.style.removeProperty('display');
+    appDrawer.style.removeProperty('display');
+    appDrawerLayout.style.removeProperty('margin-left');
+    appDrawerLayout.style.removeProperty('padding-left');
+  } else {
+    // Nascondo completamente la sidebar e recupero tutto lo spazio
+    hassSidebar.style.display = 'none';
+    appDrawer.style.display = 'none';
+    appDrawerLayout.style.marginLeft = '0';
+    appDrawerLayout.style.paddingLeft = '0';
+  }
+}
+
+function isHassSidebarHidden(): boolean {
+  const hassSidebar = getSidebar();
+  if (!hassSidebar) return false;
+
+  const inline = hassSidebar.style.display;
+  const computed = window.getComputedStyle(hassSidebar).display;
+
+  return inline === 'none' || computed === 'none';
+}
+
+function toggleHassSidebar() {
+  const currentlyHidden = isHassSidebarHidden();
+  // se è nascosta → la mostro, se è visibile → la nascondo
+  setHassSidebarVisible(currentlyHidden);
+}
+
+// Espongo il toggle su window per usarlo da HeaderCard, button-card, ecc.
+if (typeof window !== 'undefined') {
+  (window as any).silvioToggleHaSidebar = () => {
+    try {
+      toggleHassSidebar();
+    } catch (e) {
+      // eslint-disable-next-line no-console
+      console.error('silvioToggleHaSidebar error', e);
+    }
+  };
+}
+
 // --- ResizeObserver types (in case DOM lib not enabled) ---
 type ResizeObserverCallback = (
   entries: ResizeObserverEntry[],
