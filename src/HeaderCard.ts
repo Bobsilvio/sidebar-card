@@ -232,6 +232,21 @@ export class HeaderCard extends LitElement {
         break;
       }
 
+      case 'toggle-topmenu': {
+        try {
+          const w = window as any;
+          if (w && typeof w.silvioToggleTopMenu === 'function') {
+            w.silvioToggleTopMenu();
+            forwardHaptic('success');
+          } else {
+            forwardHaptic('failure');
+          }
+        } catch (_err) {
+          forwardHaptic('failure');
+        }
+        break;
+      }
+
       default:
         break;
     }

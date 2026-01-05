@@ -23,66 +23,14 @@ import {
   watchLocationChange,
   log2console,
   error2console,
+  getHeaderHeightPx,
+  setHassSidebarVisible,
+  setTopMenuVisible,
 } from './helpers';
 
 const SIDEBAR_CARD_VERSION = '1.0';
 
 let ALREADY_BUILT = false;
-
-// --- Runtime toggle della sidebar originale di Home Assistant ---
-// Usa i metodi helper già importati: getSidebar, getAppDrawerLayout, getAppDrawer
-
-function setHassSidebarVisible(visible: boolean) {
-  const hassSidebar = getSidebar();
-  const appDrawerLayout = getAppDrawerLayout();
-  const appDrawer = getAppDrawer();
-
-  if (!hassSidebar || !appDrawerLayout || !appDrawer) {
-    return;
-  }
-
-  if (visible) {
-    // Ripristino: lascio che sia il CSS di HA a fare il suo lavoro
-    hassSidebar.style.removeProperty('display');
-    appDrawer.style.removeProperty('display');
-    appDrawerLayout.style.removeProperty('margin-left');
-    appDrawerLayout.style.removeProperty('padding-left');
-  } else {
-    // Nascondo completamente la sidebar e recupero tutto lo spazio
-    hassSidebar.style.display = 'none';
-    appDrawer.style.display = 'none';
-    appDrawerLayout.style.marginLeft = '0';
-    appDrawerLayout.style.paddingLeft = '0';
-  }
-}
-
-function isHassSidebarHidden(): boolean {
-  const hassSidebar = getSidebar();
-  if (!hassSidebar) return false;
-
-  const inline = hassSidebar.style.display;
-  const computed = window.getComputedStyle(hassSidebar).display;
-
-  return inline === 'none' || computed === 'none';
-}
-
-function toggleHassSidebar() {
-  const currentlyHidden = isHassSidebarHidden();
-  // se è nascosta → la mostro, se è visibile → la nascondo
-  setHassSidebarVisible(currentlyHidden);
-}
-
-// Espongo il toggle su window per usarlo da HeaderCard, button-card, ecc.
-if (typeof window !== 'undefined') {
-  (window as any).silvioToggleHaSidebar = () => {
-    try {
-      toggleHassSidebar();
-    } catch (e) {
-      // eslint-disable-next-line no-console
-      console.error('silvioToggleHaSidebar error', e);
-    }
-  };
-}
 
 // --- ResizeObserver types (in case DOM lib not enabled) ---
 type ResizeObserverCallback = (
@@ -169,29 +117,24 @@ async function build() {
         sidebarConfig.width < 100) ||
       typeof sidebarConfig.width === 'object'
     )
-  )
-   {
+  ) {
     if (!appLayout.querySelector('#customSidebarWrapper')) {
+      // 🔹 stato iniziale top menu
       if (sidebarConfig.hideTopMenu === true && offParam == null) {
-        if (root.shadowRoot.querySelector('ch-header'))
-          (root.shadowRoot.querySelector('ch-header') as HTMLElement).style.display = 'none';
-        if (root.shadowRoot.querySelector('app-header'))
-          (root.shadowRoot.querySelector('app-header') as HTMLElement).style.display = 'none';
-        if (root.shadowRoot.querySelector('ch-footer'))
-          (root.shadowRoot.querySelector('ch-footer') as HTMLElement).style.display = 'none';
-        if (root.shadowRoot.getElementById('view'))
-          (root.shadowRoot.getElementById('view') as HTMLElement).style.minHeight = 'calc(100vh)';
+        setTopMenuVisible(false);
+      } else {
+        // se non è esplicitamente nascosto (o c'è sidebarOff), lascialo visibile
+        setTopMenuVisible(true);
       }
 
+      // 🔹 stato iniziale sidebar HA
       if (sidebarConfig.hideHassSidebar === true && offParam == null) {
-        if (hassSidebar) hassSidebar.style.display = 'none';
-        if (appDrawerLayout) {
-          appDrawerLayout.style.marginLeft = '0';
-          appDrawerLayout.style.paddingLeft = '0';
-        }
-        if (appDrawer) appDrawer.style.display = 'none';
+        setHassSidebarVisible(false);
+      } else {
+        setHassSidebarVisible(true);
       }
 
+      // breakpoints & CSS come prima
       if (!sidebarConfig.breakpoints) {
         sidebarConfig.breakpoints = { tablet: 1024, mobile: 768 };
       } else {
@@ -306,12 +249,21 @@ async function build() {
       // 4) Layout header: sta SOPRA alla view, come blocco normale.
       //    Se sticky: position: sticky; top:0. Altrimenti scorre via.
       const applyHeaderLayout = () => {
-        // NIENTE calcoli su view, niente marginTop/paddingTop.
-        // Lasciamo che il flusso normale metta le card sotto l'header.
+        // Se esiste ancora un top menu di HA, lo stimiamo con getHeaderHeightPx()
+        // (di solito è la padding-top di #view)
+        const headerHeightPx = getHeaderHeightPx();
+        const hasTopMenu =
+          headerHeightPx && headerHeightPx !== '0px' && headerHeightPx !== '0';
+
+        // Se c'è il top menu, il nostro header sticky si piazza SOTTO di lui.
+        // Se non c'è (hideTopMenu o kiosk), resta a top:0.
+        const stickyTop = hasTopMenu ? headerHeightPx : '0px';
 
         if (sticky) {
           headerHost!.style.position = 'sticky';
-          headerHost!.style.top = '0px';
+          if (!headerHost!.style.top) {
+            headerHost!.style.top = '0px';
+          }
           headerHost!.style.zIndex = '999';
         } else {
           headerHost!.style.position = '';
@@ -326,6 +278,7 @@ async function build() {
         viewEl.style.marginTop = '';
         // NON tocchiamo il padding-top: se kiosk/card-mod lo mette, rimane com'è
       };
+      
 
       applyHeaderLayout();
       requestAnimationFrame(() => applyHeaderLayout());

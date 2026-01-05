@@ -5,17 +5,63 @@
 
 export const SIDEBAR_CARD_TITLE = 'SIDEBAR-CARD';
 
+//
+// LOVELACE / ROOT
+//
+
+// 🔹 Usa il nuovo finder ricorsivo per trovare hui-root in modo robusto
+export function findHuiRootShadow(startNode?: Node | null): ShadowRoot | null {
+  const stack: Array<Node | ShadowRoot> = [];
+
+  if (startNode) stack.push(startNode);
+  else stack.push(document.body);
+
+  while (stack.length) {
+    const node = stack.pop();
+    if (!node) continue;
+
+    let root: DocumentFragment | Element | null = null;
+
+    if (node instanceof ShadowRoot) {
+      root = node;
+    } else if (node instanceof HTMLElement && node.shadowRoot) {
+      root = node.shadowRoot;
+    } else if (node instanceof HTMLElement || node instanceof DocumentFragment) {
+      root = node;
+    } else {
+      continue;
+    }
+
+    const huiRoot = root.querySelector('hui-root') as HTMLElement | null;
+    if (huiRoot?.shadowRoot) {
+      return huiRoot.shadowRoot;
+    }
+
+    const children = root.querySelectorAll('*');
+    children.forEach(el => {
+      stack.push(el);
+      if ((el as HTMLElement).shadowRoot) stack.push((el as HTMLElement).shadowRoot!);
+    });
+  }
+
+  return null;
+}
+
+export function getHuiShadowRoot(): ShadowRoot | null {
+  const ha = document.querySelector('home-assistant');
+  return findHuiRootShadow(ha);
+}
+
+// hui-root element (non shadowRoot)
+export function getRoot(): any | null {
+  const huiShadow = getHuiShadowRoot();
+  return huiShadow ? (huiShadow.host as any) : null;
+}
+
+// lovelace object
 export function getLovelace() {
-  let root: any = document.querySelector('home-assistant');
-  root = root && root.shadowRoot;
-  root = root && root.querySelector('home-assistant-main');
-  root = root && root.shadowRoot;
-  root = root && root.querySelector('ha-drawer partial-panel-resolver');
-  root = (root && root.shadowRoot) || root;
-  root = root && root.querySelector('ha-panel-lovelace');
-  root = root && root.shadowRoot;
-  root = root && root.querySelector('hui-root');
-  if (root) {
+  const root = getRoot();
+  if (root && root.lovelace) {
     const ll = root.lovelace;
     ll.current_view = root.___curView;
     return ll;
@@ -72,25 +118,18 @@ export async function error2console(method: string, message: string, object?: an
   }
 }
 
-export function getRoot() {
-  let root: any = document.querySelector('home-assistant');
-  root = root && root.shadowRoot;
-  root = root && root.querySelector('home-assistant-main');
-  root = root && root.shadowRoot;
-  root = root && root.querySelector('ha-drawer partial-panel-resolver');
-  root = (root && root.shadowRoot) || root;
-  root = root && root.querySelector('ha-panel-lovelace');
-  root = root && root.shadowRoot;
-  root = root && root.querySelector('hui-root');
-  return root;
-}
+//
+// SIDEBAR / LAYOUT ORIGINALE HA
+//
 
 export function getHeaderHeightPx() {
   let headerHeightPx = '0px';
   const root = getRoot();
-  if (!root || !root.shadowRoot) return headerHeightPx;
+  const shadow = root?.shadowRoot as ShadowRoot | null;
 
-  const view = root.shadowRoot.getElementById('view') as HTMLElement | null;
+  if (!shadow) return headerHeightPx;
+
+  const view = shadow.getElementById('view') as HTMLElement | null;
   if (view && window.getComputedStyle(view) !== undefined) {
     headerHeightPx = window.getComputedStyle(view).paddingTop;
   }
@@ -245,16 +284,18 @@ export function updateStyling(appLayout: any, sidebarConfig: any) {
   styleEl.textContent = createCSS(sidebarConfig, width);
 
   const root = getRoot();
-  if (!root || !root.shadowRoot) {
+  const shadow = root?.shadowRoot as ShadowRoot | null;
+
+  if (!shadow) {
     log2console('updateStyling', 'Root/shadowRoot non pronto, skip header/footer');
     return;
   }
 
-  const hassHeader = root.shadowRoot.querySelector('.header') as HTMLElement | null;
-  const hassFooter = (root.shadowRoot.querySelector('ch-footer') ||
-    root.shadowRoot.querySelector('app-footer')) as HTMLElement | null;
+  const hassHeader = shadow.querySelector('.header') as HTMLElement | null;
+  const hassFooter = (shadow.querySelector('ch-footer') ||
+    shadow.querySelector('app-footer')) as HTMLElement | null;
   const offParam = getParameterByName('sidebarOff');
-  const view = root.shadowRoot.getElementById('view') as HTMLElement | null;
+  const view = shadow.getElementById('view') as HTMLElement | null;
   const headerHeightPx = getHeaderHeightPx();
   const widthPx = document.body.clientWidth;
 
@@ -307,9 +348,10 @@ export function watchLocationChange(buildFn: () => void) {
   setTimeout(() => {
     window.addEventListener('location-changed', () => {
       const root = getRoot();
-      if (!root || !root.shadowRoot) return;
+      const shadow = root?.shadowRoot as ShadowRoot | null;
+      if (!shadow) return;
 
-      const appLayout = root.shadowRoot.querySelector('div');
+      const appLayout = shadow.querySelector('div');
       if (!appLayout) return;
 
       const customSidebarWrapper = appLayout.querySelector('#customSidebarWrapper') as HTMLElement | null;
@@ -324,4 +366,124 @@ export function watchLocationChange(buildFn: () => void) {
       }
     });
   }, 1000);
+}
+
+// ------------------------------------------------------------------
+//  SIDEBAR ORIGINALE DI HOME ASSISTANT (ha-sidebar)
+// ------------------------------------------------------------------
+
+export function setHassSidebarVisible(visible: boolean) {
+  const hassSidebar = getSidebar();
+  const appDrawerLayout = getAppDrawerLayout();
+  const appDrawer = getAppDrawer();
+
+  if (!hassSidebar || !appDrawerLayout || !appDrawer) {
+    return;
+  }
+
+  if (visible) {
+    // Ripristino: lascio che sia il CSS di HA a fare il suo lavoro
+    hassSidebar.style.removeProperty('display');
+    appDrawer.style.removeProperty('display');
+    appDrawerLayout.style.removeProperty('margin-left');
+    appDrawerLayout.style.removeProperty('padding-left');
+  } else {
+    // Nascondo completamente la sidebar e recupero tutto lo spazio
+    hassSidebar.style.display = 'none';
+    appDrawer.style.display = 'none';
+    appDrawerLayout.style.marginLeft = '0';
+    appDrawerLayout.style.paddingLeft = '0';
+  }
+}
+
+export function isHassSidebarHidden(): boolean {
+  const hassSidebar = getSidebar();
+  if (!hassSidebar) return false;
+
+  const inline = hassSidebar.style.display;
+  const computed = window.getComputedStyle(hassSidebar).display;
+
+  return inline === 'none' || computed === 'none';
+}
+
+export function toggleHassSidebar() {
+  const currentlyHidden = isHassSidebarHidden();
+  setHassSidebarVisible(currentlyHidden);
+}
+
+// ------------------------------------------------------------------
+//  MOSTRA / NASCONDI TOP MENU
+// ------------------------------------------------------------------
+
+export function setTopMenuVisible(visible: boolean) {
+  const shadow = getHuiShadowRoot();
+  if (!shadow) return;
+
+  const headerEl = shadow.querySelector('div.header') as HTMLElement | null;
+  const viewEl   = shadow.querySelector('#view') as HTMLElement | null;
+  const headerHost = shadow.querySelector('#customHeaderContainer') as HTMLElement | null;
+
+  if (!headerEl) return;
+
+  if (visible) {
+    headerEl.style.display = 'flex';
+
+    if (viewEl) viewEl.style.removeProperty('min-height');
+
+    const h = headerEl.getBoundingClientRect().height || 0;
+    if (headerHost) {
+      if (!headerHost.style.position) headerHost.style.position = 'sticky';
+      headerHost.style.top = `${h}px`;
+    }
+  } else {
+    headerEl.style.display = 'none';
+
+    if (viewEl) viewEl.style.minHeight = 'calc(100vh)';
+
+    if (headerHost) headerHost.style.top = '0px';
+  }
+}
+
+export function isTopMenuHidden(): boolean {
+  const shadow = getHuiShadowRoot();
+  if (!shadow) return false;
+
+  const headerEl = shadow.querySelector('div.header') as HTMLElement | null;
+  if (!headerEl) return false;
+
+  const inline = headerEl.style.display;
+  const computed = window.getComputedStyle(headerEl).display;
+  return inline === 'none' || computed === 'none';
+}
+
+export function toggleTopMenuRuntime() {
+  const hidden = isTopMenuHidden();
+  setTopMenuVisible(hidden);
+}
+
+// ------------------------------------------------------------------
+//  GLOBAL WINDOW HELPERS (per HeaderCard, debug, ecc.)
+// ------------------------------------------------------------------
+
+if (typeof window !== 'undefined') {
+  (window as any).silvioToggleHaSidebar = () => {
+    try {
+      toggleHassSidebar();
+    } catch (e) {
+      // eslint-disable-next-line no-console
+      console.error('silvioToggleHaSidebar error', e);
+    }
+  };
+
+  (window as any).silvioToggleTopMenu = () => {
+    try {
+      toggleTopMenuRuntime();
+    } catch (e) {
+      // eslint-disable-next-line no-console
+      console.error('silvioToggleTopMenu error', e);
+    }
+  };
+
+  // opzionale ma utile per debug da console:
+  (window as any).setTopMenuVisible = (visible: boolean) => setTopMenuVisible(visible);
 }

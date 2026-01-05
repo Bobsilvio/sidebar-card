@@ -11,6 +11,7 @@ import moment from 'moment/min/moment-with-locales';
 import { forwardHaptic, navigate, toggleEntity } from 'custom-card-helpers';
 
 import {
+  setTopMenuVisible,
   getHeaderHeightPx,
   log2console,
   error2console,
@@ -388,20 +389,28 @@ export class SidebarCard extends LitElement {
 
   updateSidebarSize() {
     const sidebarInner = this.shadowRoot?.querySelector('.sidebar-inner') as HTMLElement | null;
-    if (!sidebarInner) return;
+    if (!sidebarInner || !this.config) return;
 
     const headerHeightPx = getHeaderHeightPx();
 
     sidebarInner.style.width = this.offsetWidth + 'px';
 
+    // headerHeightPx è tipo "72px"
     if (this.config.hideTopMenu) {
+      // nascondo la topbar HA e porto il mio header in alto
+      setTopMenuVisible(false);
+
       sidebarInner.style.height = `${window.innerHeight}px`;
       sidebarInner.style.top = '0px';
     } else {
+      // mostro la topbar HA e sposto il mio header sotto
+      setTopMenuVisible(true);
+
       sidebarInner.style.height = `calc(${window.innerHeight}px - ${headerHeightPx})`;
       sidebarInner.style.top = headerHeightPx;
     }
   }
+  
 
   firstUpdated() {
     provideHass(this);
@@ -665,6 +674,22 @@ export class SidebarCard extends LitElement {
         }
         break;
       }
+      
+      case 'toggle-topmenu': {
+        try {
+          const w = window as any;
+          if (w && typeof w.silvioToggleTopMenu === 'function') {
+            w.silvioToggleTopMenu();
+            forwardHaptic('success');
+          } else {
+            forwardHaptic('failure');
+          }
+        } catch (_err) {
+          forwardHaptic('failure');
+        }
+        break;
+      }
+      
     }
   }
 
