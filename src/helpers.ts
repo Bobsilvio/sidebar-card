@@ -412,35 +412,67 @@ export function toggleHassSidebar() {
 }
 
 // ------------------------------------------------------------------
-//  MOSTRA / NASCONDI TOP MENU
+//  MOSTRA / NASCONDI TOP MENU + PUSH MODE
 // ------------------------------------------------------------------
+
+function getHeaderTopMenuOptions() {
+  const ll = getLovelace();
+  const cfg = ll?.config?.header ?? {};
+
+  const mode: 'overlay' | 'push' =
+    cfg.topMenuMode === 'push' ? 'push' : 'overlay';
+
+  return { mode };
+}
+
+function applyTopMenuPushMode(enabled: boolean) {
+  const shadow = getHuiShadowRoot();
+  if (!shadow) return;
+
+  const haHeader = shadow.querySelector('div.header') as HTMLElement | null;
+  const headerHost = shadow.querySelector('#customHeaderContainer') as HTMLElement | null;
+
+  const view = shadow.getElementById('view') as HTMLElement | null;
+  const customSidebarInner = document.querySelector(
+    '#customSidebar .sidebar-inner',
+  ) as HTMLElement | null;
+
+  if (!view && !customSidebarInner) return;
+
+  if (enabled) {
+    const hHa = haHeader?.getBoundingClientRect().height || 0;
+    const hCustom = headerHost?.getBoundingClientRect().height || 0;
+    const total = hHa + hCustom;
+
+    if (view) view.style.paddingTop = `${total}px`;
+    if (customSidebarInner) customSidebarInner.style.paddingTop = `${total}px`;
+  } else {
+    if (view) view.style.removeProperty('padding-top');
+    if (customSidebarInner) customSidebarInner.style.removeProperty('padding-top');
+  }
+}
 
 export function setTopMenuVisible(visible: boolean) {
   const shadow = getHuiShadowRoot();
   if (!shadow) return;
 
-  const headerEl = shadow.querySelector('div.header') as HTMLElement | null;
-  const viewEl   = shadow.querySelector('#view') as HTMLElement | null;
-  const headerHost = shadow.querySelector('#customHeaderContainer') as HTMLElement | null;
+  const haHeader = shadow.querySelector('div.header') as HTMLElement | null;
+  if (!haHeader) return;
 
-  if (!headerEl) return;
+  const { mode } = getHeaderTopMenuOptions();
 
   if (visible) {
-    headerEl.style.display = 'flex';
-
-    if (viewEl) viewEl.style.removeProperty('min-height');
-
-    const h = headerEl.getBoundingClientRect().height || 0;
-    if (headerHost) {
-      if (!headerHost.style.position) headerHost.style.position = 'sticky';
-      headerHost.style.top = `${h}px`;
-    }
+    haHeader.style.display = 'flex';
   } else {
-    headerEl.style.display = 'none';
+    haHeader.style.display = 'none';
+  }
 
-    if (viewEl) viewEl.style.minHeight = 'calc(100vh)';
-
-    if (headerHost) headerHost.style.top = '0px';
+  // PUSH: sposta in basso tutta la view (sidebar + card)
+  if (mode === 'push') {
+    applyTopMenuPushMode(visible);
+  } else {
+    // overlay → niente padding extra
+    applyTopMenuPushMode(false);
   }
 }
 
@@ -448,11 +480,11 @@ export function isTopMenuHidden(): boolean {
   const shadow = getHuiShadowRoot();
   if (!shadow) return false;
 
-  const headerEl = shadow.querySelector('div.header') as HTMLElement | null;
-  if (!headerEl) return false;
+  const haHeader = shadow.querySelector('div.header') as HTMLElement | null;
+  if (!haHeader) return false;
 
-  const inline = headerEl.style.display;
-  const computed = window.getComputedStyle(headerEl).display;
+  const inline = haHeader.style.display;
+  const computed = window.getComputedStyle(haHeader).display;
   return inline === 'none' || computed === 'none';
 }
 
@@ -487,3 +519,4 @@ if (typeof window !== 'undefined') {
   // opzionale ma utile per debug da console:
   (window as any).setTopMenuVisible = (visible: boolean) => setTopMenuVisible(visible);
 }
+

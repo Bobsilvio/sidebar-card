@@ -13,6 +13,7 @@ import {
   SIDEBAR_CARD_TITLE,
   getConfig,
   getRoot,
+  getHuiShadowRoot,
   getSidebar,
   getAppDrawerLayout,
   getAppDrawer,
@@ -175,120 +176,146 @@ async function build() {
   }
 
   // ---------------------------
-  // HEADER (separato)  ✅ SOLO UNA VOLTA
+  // HEADER
   // ---------------------------
   if (headerConfig && headerConfig.enabled !== false) {
-    const wrapperEl = appLayout.querySelector(
-      '#customSidebarWrapper',
-    ) as HTMLElement | null;
     const viewEl = appLayout.querySelector('#view') as HTMLElement | null;
-
     if (!viewEl) {
       error2console('build', 'View element (#view) not found for header');
     } else {
-      // 1) Trova/crea host container (FUORI dal wrapper!)
-      let headerHost =
-        (appLayout.querySelector(
-          '#customHeaderContainer',
-        ) as HTMLElement | null) ||
-        (document.querySelector(
-          '#customHeaderContainer',
-        ) as HTMLElement | null);
+      // targetContent = tutto ciò che deve scendere sotto la header:
+      // - se sidebar attiva: #customSidebarWrapper (contiene sidebar + view)
+      // - altrimenti: #view
+      const sidebarWrapper = appLayout.querySelector('#customSidebarWrapper') as HTMLElement | null;
+      const targetContent = sidebarWrapper ?? viewEl;
 
+      // 1) Wrapper verticale (colonna) che conterrà header + contenuto
+      let headerWrapper = appLayout.querySelector('#customHeaderWrapper') as HTMLElement | null;
+      if (!headerWrapper) {
+        headerWrapper = document.createElement('div');
+        headerWrapper.id = 'customHeaderWrapper';
+        headerWrapper.style.display = 'flex';
+        headerWrapper.style.flexDirection = 'column';
+        headerWrapper.style.width = '100%';
+        headerWrapper.style.minWidth = '0';
+        headerWrapper.style.boxSizing = 'border-box';
+
+        // Inseriscilo prima del targetContent
+        if (targetContent.parentNode) {
+          targetContent.parentNode.insertBefore(headerWrapper, targetContent);
+        } else {
+          appLayout.insertBefore(headerWrapper, appLayout.firstChild);
+        }
+
+        // Sposta dentro al wrapper il contenuto (sidebarWrapper o view)
+        headerWrapper.appendChild(targetContent);
+      } else {
+        // Se esiste già, assicuriamoci che contenga il targetContent
+        if (targetContent.parentElement !== headerWrapper) {
+          headerWrapper.appendChild(targetContent);
+        }
+      }
+
+      // 2) Host della tua header (sempre PRIMO figlio del wrapper)
+      let headerHost = headerWrapper.querySelector('#customHeaderContainer') as HTMLElement | null;
       if (!headerHost) {
         headerHost = document.createElement('div');
         headerHost.id = 'customHeaderContainer';
         headerHost.style.width = '100%';
         headerHost.style.boxSizing = 'border-box';
+        headerWrapper.insertBefore(headerHost, headerWrapper.firstChild);
+      } else if (headerHost !== headerWrapper.firstChild) {
+        headerWrapper.insertBefore(headerHost, headerWrapper.firstChild);
       }
 
-      // Inserisci headerHost SOPRA wrapper (così non entra nel flex row)
-      if (wrapperEl) {
-        if (
-          headerHost.parentElement !== appLayout ||
-          headerHost.nextSibling !== wrapperEl
-        ) {
-          appLayout.insertBefore(headerHost, wrapperEl);
-        }
-      } else {
-        // fallback: sopra #view
-        if (viewEl.parentNode) {
-          viewEl.parentNode.insertBefore(headerHost, viewEl);
-        }
-      }
-
-      // 2) Crea/riusa l'elemento header-card + setConfig
+      // 3) Crea/riusa l’elemento header-card + setConfig
       await buildHeaderCard(headerHost, headerConfig);
 
-      // sticky: di default true, se sticky === false/0/'false' allora scorre via
+      // sticky: default true
       const sticky = (() => {
         const v = headerConfig.sticky;
-        if (v === undefined || v === null) return true; // default: sticky ON
-
+        if (v === undefined || v === null) return true;
         if (typeof v === 'boolean') return v;
         if (typeof v === 'string') {
           const s = v.toLowerCase().trim();
-          if (s === 'false' || s === 'off' || s === '0' || s === 'no') return false;
-          return true;
+          return !(s === 'false' || s === 'off' || s === '0' || s === 'no');
         }
         if (typeof v === 'number') return v !== 0;
-
         return true;
       })();
 
-      // 3) (opzionale) nascondi topbar HA se vuoi usare solo la tua header
-      const haTopbar =
-        root.shadowRoot?.querySelector('app-header') ||
-        root.shadowRoot?.querySelector('ha-top-app-bar-fixed') ||
-        root.shadowRoot?.querySelector('ch-header');
+      // modalità topMenu (overlay|push) letta dalla config header
+      const topMenuMode: 'overlay' | 'push' =
+        headerConfig.topMenuMode === 'overlay' ? 'overlay' : 'push';
 
-      if (haTopbar instanceof HTMLElement) {
-        haTopbar.style.display = 'none';
-      }
-
-      // 4) Layout header: sta SOPRA alla view, come blocco normale.
-      //    Se sticky: position: sticky; top:0. Altrimenti scorre via.
       const applyHeaderLayout = () => {
-        // Se esiste ancora un top menu di HA, lo stimiamo con getHeaderHeightPx()
-        // (di solito è la padding-top di #view)
-        const headerHeightPx = getHeaderHeightPx();
-        const hasTopMenu =
-          headerHeightPx && headerHeightPx !== '0px' && headerHeightPx !== '0';
-
-        // Se c'è il top menu, il nostro header sticky si piazza SOTTO di lui.
-        // Se non c'è (hideTopMenu o kiosk), resta a top:0.
-        const stickyTop = hasTopMenu ? headerHeightPx : '0px';
-
+        // 4) La tua header: sticky o normale
         if (sticky) {
           headerHost!.style.position = 'sticky';
-          if (!headerHost!.style.top) {
-            headerHost!.style.top = '0px';
-          }
-          headerHost!.style.zIndex = '999';
+          headerHost!.style.top = '0px';
+          headerHost!.style.zIndex = '1000';
         } else {
-          headerHost!.style.position = '';
-          headerHost!.style.top = '';
-          headerHost!.style.zIndex = '';
+          headerHost!.style.position = 'relative';
+          headerHost!.style.top = '0px';
+          headerHost!.style.zIndex = '1';
         }
 
-        // Assicuriamoci di non forzare altezza: ci pensa HeaderCard (min-height)
-        headerHost!.style.removeProperty('height');
+        // 5) Misuro topbar HA (div.header) e verifico se è visibile
+        const huiShadow = getHuiShadowRoot?.() ?? null;
+        const haHeaderEl =
+          (huiShadow?.querySelector('div.header') as HTMLElement | null) ??
+          (appLayout.querySelector('div.header') as HTMLElement | null);
 
-        // La view non viene toccata: cards sempre sotto l'header
-        viewEl.style.marginTop = '';
-        // NON tocchiamo il padding-top: se kiosk/card-mod lo mette, rimane com'è
+        const haHeaderVisible =
+          !!haHeaderEl && window.getComputedStyle(haHeaderEl).display !== 'none';
+
+        const haHeaderHeight =
+          haHeaderVisible ? Math.round(haHeaderEl!.getBoundingClientRect().height) : 0;
+
+        // ✅ padding base SOLO se la topbar è visibile
+        const basePaddingTop = haHeaderVisible ? 50 : 0;
+
+        if (topMenuMode === 'push' && haHeaderHeight > 0) {
+          // push: uso altezza reale della topbar HA (ha priorità)
+          headerWrapper!.style.paddingTop = `${haHeaderHeight}px`;
+
+          // in push, la view NON deve avere padding-top inline
+          viewEl.style.paddingTop = '0px';
+        } else {
+          // overlay: padding 50 SOLO se topbar visibile, altrimenti 0
+          headerWrapper!.style.paddingTop = `${basePaddingTop}px`;
+
+          // ripristino: lascio che HA/card-mod gestiscano la view
+          viewEl.style.removeProperty('padding-top');
+        }
       };
       
 
       applyHeaderLayout();
       requestAnimationFrame(() => applyHeaderLayout());
+      
+      const obsKey = '__sidebarCardHaHeaderObserver';
+      const prevObs = (window as any)[obsKey] as MutationObserver | undefined;
+      if (prevObs) prevObs.disconnect();
 
-      // Sticky non dipende dalla width della sidebar, ma se vuoi puoi
-      // comunque ri-applicare layout su resize per sicurezza:
+      const huiShadow = getHuiShadowRoot?.() ?? null;
+      const haHeaderEl =
+        (huiShadow?.querySelector('div.header') as HTMLElement | null) ??
+        (appLayout.querySelector('div.header') as HTMLElement | null);
+
+      if (haHeaderEl) {
+        const mo = new MutationObserver(() => {
+          applyHeaderLayout();
+          requestAnimationFrame(() => applyHeaderLayout());
+        });
+
+        mo.observe(haHeaderEl, { attributes: true, attributeFilter: ['style', 'class', 'hidden'] });
+        (window as any)[obsKey] = mo;
+      }
+      
+      // Riesegue layout su resize
       const key = '__sidebarCardHeaderResizeHandler';
-      const prev = (window as any)[key] as
-        | ((...args: any[]) => void)
-        | undefined;
+      const prev = (window as any)[key] as ((...args: any[]) => void) | undefined;
       if (prev) window.removeEventListener('resize', prev);
 
       const onResize = () => applyHeaderLayout();
@@ -297,23 +324,33 @@ async function build() {
     }
   } else {
     // header disabilitato: cleanup
-    const headerHost = appLayout.querySelector(
-      '#customHeaderContainer',
-    ) as HTMLElement | null;
+    const headerWrapper = appLayout.querySelector('#customHeaderWrapper') as HTMLElement | null;
+    const headerHost = appLayout.querySelector('#customHeaderContainer') as HTMLElement | null;
+
     if (headerHost) headerHost.remove();
 
-    const viewEl = appLayout.querySelector('#view') as HTMLElement | null;
-    if (viewEl) {
-      viewEl.style.marginTop = '';
-      viewEl.style.removeProperty('padding-top');
+    // se esiste wrapper, rimetti il contenuto al posto giusto (best effort)
+    if (headerWrapper) {
+      const maybeSidebarWrapper = headerWrapper.querySelector('#customSidebarWrapper') as HTMLElement | null;
+      const viewEl = headerWrapper.querySelector('#view') as HTMLElement | null;
+
+      const toRestore = maybeSidebarWrapper ?? viewEl;
+      if (toRestore && headerWrapper.parentNode) {
+        headerWrapper.parentNode.insertBefore(toRestore, headerWrapper);
+      }
+      headerWrapper.remove();
     }
 
     const key = '__sidebarCardHeaderResizeHandler';
-    const prev = (window as any)[key] as
-      | ((...args: any[]) => void)
-      | undefined;
+    const prev = (window as any)[key] as ((...args: any[]) => void) | undefined;
     if (prev) window.removeEventListener('resize', prev);
     delete (window as any)[key];
+
+    // cleanup MutationObserver topbar HA
+    const obsKey = '__sidebarCardHaHeaderObserver';
+    const prevObs = (window as any)[obsKey] as MutationObserver | undefined;
+    if (prevObs) prevObs.disconnect();
+    delete (window as any)[obsKey];
   }
 
   ALREADY_BUILT = true;
