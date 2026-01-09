@@ -395,15 +395,12 @@ export class SidebarCard extends LitElement {
 
     sidebarInner.style.width = this.offsetWidth + 'px';
 
-    // headerHeightPx è tipo "72px"
     if (this.config.hideTopMenu) {
-      // nascondo la topbar HA e porto il mio header in alto
       setTopMenuVisible(false);
 
       sidebarInner.style.height = `${window.innerHeight}px`;
       sidebarInner.style.top = '0px';
     } else {
-      // mostro la topbar HA e sposto il mio header sotto
       setTopMenuVisible(true);
 
       sidebarInner.style.height = `calc(${window.innerHeight}px - ${headerHeightPx})`;
@@ -678,6 +675,11 @@ export class SidebarCard extends LitElement {
       case 'toggle-topmenu': {
         try {
           const w = window as any;
+          if (w && typeof w.silvioFlipTopMenu === 'function') {
+            w.silvioFlipTopMenu();
+          }
+
+          // fallback: toggle reale
           if (w && typeof w.silvioToggleTopMenu === 'function') {
             w.silvioToggleTopMenu();
             forwardHaptic('success');
@@ -689,6 +691,7 @@ export class SidebarCard extends LitElement {
         }
         break;
       }
+      
       
     }
   }

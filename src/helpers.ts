@@ -5,11 +5,7 @@
 
 export const SIDEBAR_CARD_TITLE = 'SIDEBAR-CARD';
 
-//
-// LOVELACE / ROOT
-//
 
-// 🔹 Usa il nuovo finder ricorsivo per trovare hui-root in modo robusto
 export function findHuiRootShadow(startNode?: Node | null): ShadowRoot | null {
   const stack: Array<Node | ShadowRoot> = [];
 

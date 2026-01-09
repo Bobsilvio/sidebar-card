@@ -12,7 +12,6 @@ export class HeaderCard extends LitElement {
   public config!: AnyObj;
   public hass!: AnyObj;
 
-  // Evita ricostruzioni inutili
   private _builtOnce = false;
   private _lastCardConfigKey = '';
 
@@ -46,8 +45,6 @@ export class HeaderCard extends LitElement {
 
   private _applyHeight() {
     const h = Number(this.config?.height);
-    // Non mettiamo più un height fisso sull'host,
-    // ma solo una variabile CSS usata come min-height
     if (Number.isFinite(h) && h > 0) {
       this.style.setProperty('--header-height', `${h}px`);
     } else {
@@ -76,11 +73,9 @@ export class HeaderCard extends LitElement {
   }
 
   private async _buildCardInto(container: HTMLElement, cardCfg: AnyObj | null) {
-    // Token per invalidare i build "vecchi" su questo container
     const token = Symbol('headerBuild');
     (container as any).__headerBuildToken = token;
 
-    // Pulisco sempre il contenitore
     container.innerHTML = '';
     if (!cardCfg || typeof cardCfg !== 'object' || !cardCfg.type) return;
 
@@ -92,7 +87,6 @@ export class HeaderCard extends LitElement {
     }
 
     const createAndAttach = () => {
-      // Se nel frattempo è partito un altro build per questo container, esco
       if ((container as any).__headerBuildToken !== token) return;
 
       const el: any = document.createElement(tag);
@@ -105,17 +99,14 @@ export class HeaderCard extends LitElement {
     };
 
     if (customElements.get(tag)) {
-      // custom element già registrato → attach immediato
       createAndAttach();
       return;
     }
 
-    // custom element ancora non pronto → aspetto, ma solo l'ultimo build vince
     try {
       await customElements.whenDefined(tag);
       createAndAttach();
     } catch (_e) {
-      // ignore
     }
   }
   
@@ -124,14 +115,12 @@ export class HeaderCard extends LitElement {
     const root = this.renderRoot as ShadowRoot;
     const cfg: AnyObj = this.config || {};
 
-    // Chiave che rappresenta le config delle tre card
     const cardKey = JSON.stringify({
       left: cfg.leftCard ?? null,
       center: cfg.centerCard ?? null,
       right: cfg.rightCard ?? null,
     });
 
-    // Se la config non è cambiata, NON ricostruiamo
     if (cardKey === this._lastCardConfigKey && this._builtOnce) {
       return;
     }
@@ -235,6 +224,12 @@ export class HeaderCard extends LitElement {
       case 'toggle-topmenu': {
         try {
           const w = window as any;
+          if (w && typeof w.silvioFlipTopMenu === 'function') {
+            w.silvioFlipTopMenu();
+          }
+          
+
+          // fallback: toggle reale
           if (w && typeof w.silvioToggleTopMenu === 'function') {
             w.silvioToggleTopMenu();
             forwardHaptic('success');

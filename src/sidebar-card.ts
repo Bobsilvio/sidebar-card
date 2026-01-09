@@ -54,8 +54,13 @@ declare class ResizeObserver {
 declare global {
   interface Window {
     ResizeObserver: typeof ResizeObserver;
+
+    __silvioFlipActive?: boolean;
+
+    silvioFlipTopMenu?: () => void;
   }
 }
+
 
 
 async function buildSidebarCard(container: HTMLElement, config: any) {
@@ -75,6 +80,7 @@ async function buildHeaderCard(container: HTMLElement, config: any) {
   headerEl.setConfig(config);
   headerEl.hass = hass();
 }
+
 
 async function build() {
   if (ALREADY_BUILT) return;
@@ -120,22 +126,18 @@ async function build() {
     )
   ) {
     if (!appLayout.querySelector('#customSidebarWrapper')) {
-      // 🔹 stato iniziale top menu
       if (sidebarConfig.hideTopMenu === true && offParam == null) {
         setTopMenuVisible(false);
       } else {
-        // se non è esplicitamente nascosto (o c'è sidebarOff), lascialo visibile
         setTopMenuVisible(true);
       }
 
-      // 🔹 stato iniziale sidebar HA
       if (sidebarConfig.hideHassSidebar === true && offParam == null) {
         setHassSidebarVisible(false);
       } else {
         setHassSidebarVisible(true);
       }
 
-      // breakpoints & CSS come prima
       if (!sidebarConfig.breakpoints) {
         sidebarConfig.breakpoints = { tablet: 1024, mobile: 768 };
       } else {
@@ -183,13 +185,9 @@ async function build() {
     if (!viewEl) {
       error2console('build', 'View element (#view) not found for header');
     } else {
-      // targetContent = tutto ciò che deve scendere sotto la header:
-      // - se sidebar attiva: #customSidebarWrapper (contiene sidebar + view)
-      // - altrimenti: #view
       const sidebarWrapper = appLayout.querySelector('#customSidebarWrapper') as HTMLElement | null;
       const targetContent = sidebarWrapper ?? viewEl;
 
-      // 1) Wrapper verticale (colonna) che conterrà header + contenuto
       let headerWrapper = appLayout.querySelector('#customHeaderWrapper') as HTMLElement | null;
       if (!headerWrapper) {
         headerWrapper = document.createElement('div');
@@ -200,23 +198,18 @@ async function build() {
         headerWrapper.style.minWidth = '0';
         headerWrapper.style.boxSizing = 'border-box';
 
-        // Inseriscilo prima del targetContent
         if (targetContent.parentNode) {
           targetContent.parentNode.insertBefore(headerWrapper, targetContent);
         } else {
           appLayout.insertBefore(headerWrapper, appLayout.firstChild);
         }
-
-        // Sposta dentro al wrapper il contenuto (sidebarWrapper o view)
         headerWrapper.appendChild(targetContent);
       } else {
-        // Se esiste già, assicuriamoci che contenga il targetContent
         if (targetContent.parentElement !== headerWrapper) {
           headerWrapper.appendChild(targetContent);
         }
       }
 
-      // 2) Host della tua header (sempre PRIMO figlio del wrapper)
       let headerHost = headerWrapper.querySelector('#customHeaderContainer') as HTMLElement | null;
       if (!headerHost) {
         headerHost = document.createElement('div');
@@ -228,8 +221,360 @@ async function build() {
         headerWrapper.insertBefore(headerHost, headerWrapper.firstChild);
       }
 
-      // 3) Crea/riusa l’elemento header-card + setConfig
       await buildHeaderCard(headerHost, headerConfig);
+      
+      function ensureFlipStage(headerHost: HTMLElement) {
+        let stage = headerHost.querySelector('#headerFlipStage') as HTMLElement | null;
+
+        if (!stage) {
+          stage = document.createElement('div');
+          stage.id = 'headerFlipStage';
+          stage.style.position = 'relative';
+          stage.style.width = '100%';
+          stage.style.boxSizing = 'border-box';
+          stage.style.perspective = '1600px';
+          stage.style.overflow = 'hidden';
+
+          const rot = document.createElement('div');
+          rot.id = 'headerFlipRotator';
+          rot.style.position = 'relative';
+          rot.style.width = '100%';
+          rot.style.height = '100%';
+          rot.style.transformStyle = 'preserve-3d';
+          rot.style.willChange = 'transform';
+          rot.style.transformOrigin = '50% 50%';
+          rot.style.transform = 'rotateX(0deg) translateZ(0px)';
+
+          const front = document.createElement('div');
+          front.id = 'headerFlipFront';
+          front.style.position = 'absolute';
+          front.style.inset = '0';
+          front.style.backfaceVisibility = 'hidden';
+          front.style.transform = 'rotateX(0deg)';
+          front.style.zIndex = '2';
+
+          const back = document.createElement('div');
+          back.id = 'headerFlipBack';
+          back.style.position = 'absolute';
+          back.style.inset = '0';
+          back.style.backfaceVisibility = 'hidden';
+          back.style.transform = 'rotateX(180deg)';
+          back.style.overflow = 'hidden';
+          back.style.pointerEvents = 'none';
+          back.style.opacity = '0';
+          back.style.zIndex = '1';
+
+          rot.appendChild(front);
+          rot.appendChild(back);
+          stage.appendChild(rot);
+
+          headerHost.appendChild(stage);
+        }
+
+        const front = stage.querySelector('#headerFlipFront') as HTMLElement;
+        const headerCardEl = headerHost.querySelector('header-card') as HTMLElement | null;
+        if (headerCardEl && headerCardEl.parentElement !== front) {
+          front.appendChild(headerCardEl);
+        }
+
+        const h = Math.round(front.getBoundingClientRect().height || 0);
+        stage.style.height = `${Math.max(h, 72)}px`;
+
+        return stage;
+      }
+
+      function triggerHeaderFlip(
+        headerHost: HTMLElement,
+        appLayout: HTMLElement,
+        headerWrapper: HTMLElement,
+        viewEl: HTMLElement,
+        pauseMs = flipPauseMs
+      ) {
+        const savedHostHeight = headerHost.style.height;
+        const savedHostMinHeight = headerHost.style.minHeight;
+
+        const initialHostH = Math.max(72, Math.round(headerHost.getBoundingClientRect().height || 0));
+
+        headerHost.style.height = `${initialHostH}px`;
+        headerHost.style.minHeight = `${initialHostH}px`;
+
+        const stage = ensureFlipStage(headerHost);
+        const rot = stage.querySelector('#headerFlipRotator') as HTMLElement;
+        const back = stage.querySelector('#headerFlipBack') as HTMLElement;
+        const front = stage.querySelector('#headerFlipFront') as HTMLElement;
+
+        stage.style.height = `${Math.max(initialHostH, 72)}px`;
+
+        if ((rot as any).__flipping) {
+          headerHost.style.height = savedHostHeight;
+          headerHost.style.minHeight = savedHostMinHeight;
+          return;
+        }
+        (rot as any).__flipping = true;
+
+        const huiShadow = getHuiShadowRoot?.() ?? null;
+        const haHeaderEl =
+          (huiShadow?.querySelector('div.header') as HTMLElement | null) ??
+          (appLayout.querySelector('div.header') as HTMLElement | null);
+
+        if (!haHeaderEl) {
+          headerHost.style.height = savedHostHeight;
+          headerHost.style.minHeight = savedHostMinHeight;
+          (rot as any).__flipping = false;
+          return;
+        }
+
+        const wait = (ms: number) => new Promise<void>(res => window.setTimeout(res, ms));
+
+        const originallyVisible = window.getComputedStyle(haHeaderEl).display !== 'none';
+
+        const savedWrapperPaddingTop = headerWrapper.style.paddingTop;
+        const savedViewPaddingTop = viewEl.style.paddingTop;
+        const savedViewPaddingTopProp = viewEl.style.getPropertyValue('padding-top');
+
+        const freezeLayout = () => {
+          (window as any).__silvioFlipActive = true;
+          headerWrapper.style.paddingTop = window.getComputedStyle(headerWrapper).paddingTop;
+          viewEl.style.paddingTop = window.getComputedStyle(viewEl).paddingTop;
+        };
+
+        const restoreLayout = () => {
+          headerWrapper.style.paddingTop = savedWrapperPaddingTop;
+
+          if (savedViewPaddingTopProp) {
+            viewEl.style.setProperty('padding-top', savedViewPaddingTopProp);
+          } else {
+            viewEl.style.paddingTop = savedViewPaddingTop;
+          }
+
+          (window as any).__silvioFlipActive = false;
+        };
+
+        const obsKey = '__sidebarCardHaHeaderObserver';
+        const prevObs = (window as any)[obsKey] as MutationObserver | undefined;
+        if (prevObs) prevObs.disconnect();
+        delete (window as any)[obsKey];
+
+        const overlayKey = '__silvioHaOverlayRestore';
+        const showHaOverlay = (on: boolean) => {
+          const restore = (window as any)[overlayKey] as (() => void) | undefined;
+
+          if (!on) {
+            if (restore) restore();
+            delete (window as any)[overlayKey];
+
+            // torna come prima
+            if (!originallyVisible) haHeaderEl.style.display = 'none';
+            return;
+          }
+
+          if (restore) return;
+
+          const prev = {
+            display: haHeaderEl.style.display,
+            position: haHeaderEl.style.position,
+            top: haHeaderEl.style.top,
+            left: haHeaderEl.style.left,
+            right: haHeaderEl.style.right,
+            width: haHeaderEl.style.width,
+            zIndex: haHeaderEl.style.zIndex,
+            pointerEvents: haHeaderEl.style.pointerEvents,
+            margin: haHeaderEl.style.margin,
+            transform: haHeaderEl.style.transform,
+          };
+
+          (window as any)[overlayKey] = () => {
+            haHeaderEl.style.display = prev.display;
+            haHeaderEl.style.position = prev.position;
+            haHeaderEl.style.top = prev.top;
+            haHeaderEl.style.left = prev.left;
+            haHeaderEl.style.right = prev.right;
+            haHeaderEl.style.width = prev.width;
+            haHeaderEl.style.zIndex = prev.zIndex;
+            haHeaderEl.style.pointerEvents = prev.pointerEvents;
+            haHeaderEl.style.margin = prev.margin;
+            haHeaderEl.style.transform = prev.transform;
+          };
+
+          haHeaderEl.style.display = 'flex';
+          haHeaderEl.style.position = 'fixed';
+          haHeaderEl.style.top = '0px';
+          haHeaderEl.style.left = '0px';
+          haHeaderEl.style.right = '0px';
+          haHeaderEl.style.width = '100%';
+          haHeaderEl.style.zIndex = '3000';
+          haHeaderEl.style.pointerEvents = 'auto';
+          haHeaderEl.style.margin = '0';
+          haHeaderEl.style.transform = 'translateZ(0)';
+        };
+
+        const buildBackCloneAndFixHeight = () => {
+          back.innerHTML = '';
+
+          const raw = getHeaderHeightPx();
+          const haH = Math.max(typeof raw === 'string' ? (Number.parseInt(raw, 10) || 0) : 0, 56);
+
+          const clone = haHeaderEl.cloneNode(true) as HTMLElement;
+          clone.style.display = 'flex';
+          clone.style.position = 'relative';
+          clone.style.width = '100%';
+          clone.style.height = `${haH}px`;
+          clone.style.minHeight = `${haH}px`;
+          clone.style.visibility = 'visible';
+          clone.style.opacity = '1';
+          back.appendChild(clone);
+
+          const frontH = Math.round(front.getBoundingClientRect().height || 0);
+          const backH = Math.round(back.getBoundingClientRect().height || 0);
+
+          const h = Math.max(frontH, backH, haH, initialHostH, 72);
+
+          // blocco coerente: stage + host sempre >= initialHostH
+          stage.style.height = `${h}px`;
+          headerHost.style.height = `${Math.max(h, initialHostH)}px`;
+          headerHost.style.minHeight = `${Math.max(h, initialHostH)}px`;
+
+          return h;
+        };
+
+        const rollMs = 800;
+        const mid = 89;
+
+        const hardResetVisual = () => {
+          rot.getAnimations().forEach(a => a.cancel());
+          front.getAnimations().forEach(a => a.cancel());
+          back.getAnimations().forEach(a => a.cancel());
+
+          rot.style.transformOrigin = '50% 50%';
+          rot.style.transform = 'rotateX(0deg) translateZ(0px)';
+
+          front.style.opacity = '1';
+          back.style.opacity = '0';
+          back.innerHTML = '';
+        };
+
+        const animateToBack = async () => {
+          freezeLayout();
+
+          const h = buildBackCloneAndFixHeight();
+
+          front.style.opacity = '1';
+          back.style.opacity = '0';
+
+          rot.getAnimations().forEach(a => a.cancel());
+          front.getAnimations().forEach(a => a.cancel());
+          back.getAnimations().forEach(a => a.cancel());
+
+          rot.style.transformOrigin = '50% 50%';
+          rot.style.transform = 'rotateX(0deg) translateZ(0px)';
+
+          const z = Math.max(10, Math.min(30, Math.round(h / 6)));
+
+          await new Promise<void>(resolve => {
+            const aRot = rot.animate(
+              [
+                { transform: 'rotateX(0deg) translateZ(0px)' },
+                { transform: `rotateX(${mid}deg) translateZ(${z}px)` },
+                { transform: 'rotateX(180deg) translateZ(0px)' },
+              ],
+              { duration: rollMs, easing: 'ease-in-out', fill: 'forwards' }
+            );
+
+            front.animate([{ opacity: 1 }, { opacity: 0 }], { duration: rollMs, easing: 'ease-in-out', fill: 'forwards' });
+            back.animate([{ opacity: 0 }, { opacity: 1 }], { duration: rollMs, easing: 'ease-in-out', fill: 'forwards' });
+
+            aRot.onfinish = () => resolve();
+          });
+
+          showHaOverlay(true);
+
+          back.style.opacity = '0';
+          back.innerHTML = '';
+        };
+
+        const animateToFront = async () => {
+          showHaOverlay(false);
+
+          const h = buildBackCloneAndFixHeight();
+
+          front.style.opacity = '0';
+          back.style.opacity = '1';
+
+          rot.getAnimations().forEach(a => a.cancel());
+          front.getAnimations().forEach(a => a.cancel());
+          back.getAnimations().forEach(a => a.cancel());
+
+          rot.style.transformOrigin = '50% 50%';
+          rot.style.transform = 'rotateX(180deg) translateZ(0px)';
+
+          const z = Math.max(10, Math.min(30, Math.round(h / 6)));
+
+          await new Promise<void>(resolve => {
+            const aRot = rot.animate(
+              [
+                { transform: 'rotateX(180deg) translateZ(0px)' },
+                { transform: `rotateX(${180 - mid}deg) translateZ(${z}px)` },
+                { transform: 'rotateX(0deg) translateZ(0px)' },
+              ],
+              { duration: rollMs, easing: 'ease-in-out', fill: 'forwards' }
+            );
+
+            back.animate([{ opacity: 1 }, { opacity: 0 }], { duration: rollMs, easing: 'ease-in-out', fill: 'forwards' });
+            front.animate([{ opacity: 0 }, { opacity: 1 }], { duration: rollMs, easing: 'ease-in-out', fill: 'forwards' });
+
+            aRot.onfinish = () => resolve();
+          });
+
+          hardResetVisual();
+          restoreLayout();
+
+          headerHost.style.height = savedHostHeight;
+          headerHost.style.minHeight = savedHostMinHeight;
+
+          const fh = Math.round(front.getBoundingClientRect().height || 0);
+          stage.style.height = `${Math.max(fh, 72)}px`;
+        };
+
+        (async () => {
+          try {
+            await animateToBack();
+            await wait(pauseMs);
+            await animateToFront();
+          } catch (_e) {
+            showHaOverlay(false);
+            hardResetVisual();
+            restoreLayout();
+
+            headerHost.style.height = savedHostHeight;
+            headerHost.style.minHeight = savedHostMinHeight;
+          } finally {
+            // riattacca observer + riallineo
+            try {
+              const mo = new MutationObserver(() => {
+                // @ts-ignore
+                applyHeaderLayout();
+                requestAnimationFrame(() => {
+                  // @ts-ignore
+                  applyHeaderLayout();
+                });
+              });
+              mo.observe(haHeaderEl, { attributes: true, attributeFilter: ['style', 'class', 'hidden'] });
+              (window as any)[obsKey] = mo;
+            } catch {}
+
+            try {
+              // @ts-ignore
+              applyHeaderLayout();
+              requestAnimationFrame(() => {
+                // @ts-ignore
+                applyHeaderLayout();
+              });
+            } catch {}
+
+            (rot as any).__flipping = false;
+          }
+        })();
+      }
 
       // sticky: default true
       const sticky = (() => {
@@ -244,12 +589,58 @@ async function build() {
         return true;
       })();
 
-      // modalità topMenu (overlay|push) letta dalla config header
-      const topMenuMode: 'overlay' | 'push' =
-        headerConfig.topMenuMode === 'overlay' ? 'overlay' : 'push';
+      const topMenuMode: 'overlay' | 'push' | 'flip' =
+        headerConfig.topMenuMode === 'overlay'
+          ? 'overlay'
+          : headerConfig.topMenuMode === 'flip'
+            ? 'flip'
+            : 'push';
+
+      let flipPlayed = false;
+      
+      // durata flip (secondi → ms)
+      const flipPauseMs = (() => {
+        const v = headerConfig.flipDuration;
+        if (v === undefined || v === null) return 5000;
+        const n = Number(v);
+        if (!Number.isFinite(n) || n <= 0) return 5000;
+        return Math.round(n * 1000);
+      })();
+      
+
+      // --- helper: trova topbar HA ---
+      const getHaHeaderEl = () => {
+        const huiShadow = getHuiShadowRoot?.() ?? null;
+        return (
+          (huiShadow?.querySelector('div.header') as HTMLElement | null) ??
+          (appLayout.querySelector('div.header') as HTMLElement | null)
+        );
+      };
+
+      const obsKey = '__sidebarCardHaHeaderObserver';
+
+      const detachHaHeaderObserver = () => {
+        const prevObs = (window as any)[obsKey] as MutationObserver | undefined;
+        if (prevObs) prevObs.disconnect();
+        delete (window as any)[obsKey];
+      };
+
+      const attachHaHeaderObserver = () => {
+        detachHaHeaderObserver();
+        const haHeaderEl = getHaHeaderEl();
+        if (!haHeaderEl) return;
+
+        const mo = new MutationObserver(() => {
+          applyHeaderLayout();
+          requestAnimationFrame(() => applyHeaderLayout());
+        });
+
+        mo.observe(haHeaderEl, { attributes: true, attributeFilter: ['style', 'class', 'hidden'] });
+        (window as any)[obsKey] = mo;
+      };
 
       const applyHeaderLayout = () => {
-        // 4) La tua header: sticky o normale
+        // 4) sticky / non-sticky
         if (sticky) {
           headerHost!.style.position = 'sticky';
           headerHost!.style.top = '0px';
@@ -260,60 +651,39 @@ async function build() {
           headerHost!.style.zIndex = '1';
         }
 
-        // 5) Misuro topbar HA (div.header) e verifico se è visibile
-        const huiShadow = getHuiShadowRoot?.() ?? null;
-        const haHeaderEl =
-          (huiShadow?.querySelector('div.header') as HTMLElement | null) ??
-          (appLayout.querySelector('div.header') as HTMLElement | null);
+        (window as any).silvioFlipTopMenu = () => {
+          try {
+            triggerHeaderFlip(headerHost!, appLayout, headerWrapper!, viewEl!, flipPauseMs);
+          } catch (_e) {
+            // ignore
+          }
+        };
 
+        if ((window as any).__silvioFlipActive === true) return;
+
+        const haHeaderEl = getHaHeaderEl();
         const haHeaderVisible =
           !!haHeaderEl && window.getComputedStyle(haHeaderEl).display !== 'none';
 
         const haHeaderHeight =
           haHeaderVisible ? Math.round(haHeaderEl!.getBoundingClientRect().height) : 0;
 
-        // ✅ padding base SOLO se la topbar è visibile
-        const basePaddingTop = haHeaderVisible ? 50 : 0;
+          const basePaddingTop = haHeaderVisible ? 50 : 0;
 
-        if (topMenuMode === 'push' && haHeaderHeight > 0) {
-          // push: uso altezza reale della topbar HA (ha priorità)
+        if ((topMenuMode === 'push' || topMenuMode === 'flip') && haHeaderHeight > 0) {
           headerWrapper!.style.paddingTop = `${haHeaderHeight}px`;
-
-          // in push, la view NON deve avere padding-top inline
           viewEl.style.paddingTop = '0px';
         } else {
-          // overlay: padding 50 SOLO se topbar visibile, altrimenti 0
           headerWrapper!.style.paddingTop = `${basePaddingTop}px`;
-
-          // ripristino: lascio che HA/card-mod gestiscano la view
           viewEl.style.removeProperty('padding-top');
         }
       };
-      
 
       applyHeaderLayout();
       requestAnimationFrame(() => applyHeaderLayout());
-      
-      const obsKey = '__sidebarCardHaHeaderObserver';
-      const prevObs = (window as any)[obsKey] as MutationObserver | undefined;
-      if (prevObs) prevObs.disconnect();
 
-      const huiShadow = getHuiShadowRoot?.() ?? null;
-      const haHeaderEl =
-        (huiShadow?.querySelector('div.header') as HTMLElement | null) ??
-        (appLayout.querySelector('div.header') as HTMLElement | null);
+      attachHaHeaderObserver();
 
-      if (haHeaderEl) {
-        const mo = new MutationObserver(() => {
-          applyHeaderLayout();
-          requestAnimationFrame(() => applyHeaderLayout());
-        });
-
-        mo.observe(haHeaderEl, { attributes: true, attributeFilter: ['style', 'class', 'hidden'] });
-        (window as any)[obsKey] = mo;
-      }
-      
-      // Riesegue layout su resize
       const key = '__sidebarCardHeaderResizeHandler';
       const prev = (window as any)[key] as ((...args: any[]) => void) | undefined;
       if (prev) window.removeEventListener('resize', prev);
@@ -321,15 +691,14 @@ async function build() {
       const onResize = () => applyHeaderLayout();
       (window as any)[key] = onResize;
       window.addEventListener('resize', onResize);
+      
     }
   } else {
-    // header disabilitato: cleanup
     const headerWrapper = appLayout.querySelector('#customHeaderWrapper') as HTMLElement | null;
     const headerHost = appLayout.querySelector('#customHeaderContainer') as HTMLElement | null;
 
     if (headerHost) headerHost.remove();
 
-    // se esiste wrapper, rimetti il contenuto al posto giusto (best effort)
     if (headerWrapper) {
       const maybeSidebarWrapper = headerWrapper.querySelector('#customSidebarWrapper') as HTMLElement | null;
       const viewEl = headerWrapper.querySelector('#view') as HTMLElement | null;
@@ -346,7 +715,6 @@ async function build() {
     if (prev) window.removeEventListener('resize', prev);
     delete (window as any)[key];
 
-    // cleanup MutationObserver topbar HA
     const obsKey = '__sidebarCardHaHeaderObserver';
     const prevObs = (window as any)[obsKey] as MutationObserver | undefined;
     if (prevObs) prevObs.disconnect();
@@ -354,6 +722,7 @@ async function build() {
   }
 
   ALREADY_BUILT = true;
+  
 }
 
 // Define custom elements ONCE
