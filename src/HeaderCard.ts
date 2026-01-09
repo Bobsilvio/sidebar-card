@@ -92,6 +92,7 @@ export class HeaderCard extends LitElement {
       const el: any = document.createElement(tag);
       if (typeof el.setConfig !== 'function') return;
 
+      el.hass = (this.hass ?? getHass()) as any;
       el.setConfig(cardCfg);
       el.hass = (this.hass ?? getHass()) as any;
       container.appendChild(el);
