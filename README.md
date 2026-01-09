@@ -174,6 +174,9 @@ sidebarMenu:
 | `call-service` | Call Home Assistant service |
 | `service-js` | Execute JavaScript |
 | `url` | Open a URL |
+| `toggle-sidebar` | Toggle the **default HA sidebar** (drawer) |
+| `toggle-topmenu` | Toggle the **HA top bar** (or trigger `flip` mode when enabled) |
+
 
 ### Extra Item Fields
 
@@ -224,23 +227,56 @@ sidebar:
 header:
   enabled: true
   sticky: true
-  height: 72
-  headerMenuStyle: wide
+  height: 72                       # minimum header height (px)
+  headerMenuStyle: wide            # list / wide / buttons / grid (same as sidebar)
   headerMenuShowLabel: true
-  headerMenuPosition: center
+  headerMenuPosition: center       # left / center / right
+
+  # Home Assistant top bar behavior (optional)
+  topMenuMode: overlay             # overlay / push / flip
+  flipDuration: 5                  # seconds to keep HA top bar visible in flip mode
+
+  # Optional icon menus (left / right)
+  leftMenu:
+    - icon: mdi:menu
+      name: Sidebar
+      action: toggle-sidebar
+
+  rightMenu:
+    - icon: mdi:application
+      name: Top bar
+      action: toggle-topmenu
 ```
 
-| Option | Type | Description |
-|--------|------|-------------|
-| `enabled` | bool | Enable custom header |
-| `sticky` | bool | Fix header to top |
-| `height` | int | Minimum height (px) |
-| `headerMenuStyle` | string | e.g. `wide` |
-| `headerMenuShowLabel` | bool | Show label text |
-| `headerMenuPosition` | string | `left / center / right` |
+| Option | Type | Default | Description |
+|--------|------|---------|-------------|
+| `enabled` | bool | `true` | Enable custom header |
+| `sticky` | bool | `true` | Make header sticky to the top |
+| `height` | int | `72` | Minimum header height in pixels (can grow with content) |
+| `style` | string | — | Extra CSS applied inside the header-card (supports `:host { ... }`) |
+| `topMenuMode` | string | `overlay` | How to handle HA default top bar: `overlay`, `push`, or `flip` |
+| `flipDuration` | number | `5` | **Flip mode only**: seconds to keep HA top bar visible before flipping back |
+| `headerMenuStyle` | string | `wide` | Header menu style (`list / wide / buttons / grid`) |
+| `headerMenuShowLabel` | bool | `true` | Show text labels in header menu |
+| `headerMenuPosition` | string | `right` | Place header menu in `left / center / right` area |
+| `leftMenu` | list | — | Icon buttons shown on the far left (e.g. toggle sidebar) |
+| `rightMenu` | list | — | Icon buttons shown on the far right (e.g. toggle top bar) |
+| `headerMenu` | list | — | Main header menu (styled buttons) |
+| `leftCard` | Lovelace card | — | Any Lovelace card rendered in the left slot |
+| `centerCard` | Lovelace card | — | Any Lovelace card rendered in the center slot |
+| `rightCard` | Lovelace card | — | Any Lovelace card rendered in the right slot |
 
----
+## 🧩 Top Bar Modes (`topMenuMode`)
 
+- **`overlay` (default)**: your header stays visible; HA top bar can be shown/hidden without pushing the view.
+- **`push`**: when HA top bar is visible, the content is pushed down using the real top bar height.
+- **`flip`**: your header “flips” to reveal HA top bar for a few seconds, then flips back. Use `flipDuration` to control how long HA top bar stays visible.
+
+To trigger the behavior, use a menu item with:
+
+```yaml
+action: toggle-topmenu
+```
 ## Header Menu Items
 
 ```yaml
@@ -440,4 +476,10 @@ headerMenu:
         window.silvioFlipTopMenu();
       }
 ```
-
+or
+```yaml
+rightMenu:
+  - icon: mdi:application
+    name: Top bar
+    action: toggle-topmenu
+```
