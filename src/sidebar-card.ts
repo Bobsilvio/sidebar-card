@@ -29,7 +29,7 @@ import {
   setTopMenuVisible,
 } from './helpers';
 
-const SIDEBAR_CARD_VERSION = '1.0';
+const SIDEBAR_CARD_VERSION = '1.1';
 
 let ALREADY_BUILT = false;
 
