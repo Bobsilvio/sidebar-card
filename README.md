@@ -389,3 +389,50 @@ style: |
 Thanks DBuit for original work
 
 Built for the HA community 🙂
+
+---
+
+## 🔄 Header Top Menu Modes (NEW)
+
+The custom header can manage the Home Assistant top bar in three different ways.
+
+| Mode | Description |
+|------|-------------|
+| `overlay` | HA top bar overlays the content |
+| `push` | Content is pushed down by the HA top bar |
+| `flip` | **Animated cylindrical flip between custom header and HA top bar** |
+
+### 🌀 Flip Mode
+
+The **flip mode** creates a smooth cylindrical rotation effect between:
+
+- Your custom header
+- The original Home Assistant top bar
+
+✔ No layout jumps  
+✔ No content shifting  
+✔ Identical occupied space  
+
+#### Configuration
+
+```yaml
+header:
+  enabled: true
+  sticky: true
+  topMenuMode: flip
+  flipDuration: 5   # seconds (optional, default: 5)
+```
+
+#### Trigger example
+
+```yaml
+headerMenu:
+  - action: service-js
+    name: "Top Menu"
+    icon: mdi:swap-vertical
+    service: |
+      if (window.silvioFlipTopMenu) {
+        window.silvioFlipTopMenu();
+      }
+```
+
