@@ -23,6 +23,9 @@ Don't forget to follow me on social media:
 # Header Flip Mode
 ![Header flip animation](img/Header-Flip_Mode.gif)
 
+# Header Push Mode
+![Header push](img/Header-Push_Mode.gif)
+
 ## 📸 Screenshots
 <p align="center">
   <img src="img/1.PNG" width="48%">
