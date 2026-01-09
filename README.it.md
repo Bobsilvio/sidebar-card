@@ -206,3 +206,50 @@ header:
 # ❤️ Crediti
 
 Creato per la community Home Assistant 🙂
+
+---
+
+## 🔄 Modalità Top Menu Header (NOVITÀ)
+
+La header personalizzata può gestire la top bar di Home Assistant in tre modalità.
+
+| Modalità | Descrizione |
+|---------|-------------|
+| `overlay` | La top bar HA si sovrappone |
+| `push` | Il contenuto viene spinto verso il basso |
+| `flip` | **Rotazione cilindrica animata tra header e top bar HA** |
+
+### 🌀 Modalità Flip
+
+La modalità **flip** crea un effetto di rotazione fluido tra:
+
+- La tua header personalizzata
+- La top bar originale di Home Assistant
+
+✔ Nessun salto di layout  
+✔ Nessuno spostamento delle card  
+✔ Spazio sempre identico  
+
+#### Configurazione
+
+```yaml
+header:
+  enabled: true
+  sticky: true
+  topMenuMode: flip
+  flipDuration: 5   # secondi (opzionale, default: 5)
+```
+
+#### Esempio attivazione
+
+```yaml
+headerMenu:
+  - action: service-js
+    name: "Menu"
+    icon: mdi:swap-vertical
+    service: |
+      if (window.silvioFlipTopMenu) {
+        window.silvioFlipTopMenu();
+      }
+```
+
