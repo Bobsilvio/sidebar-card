@@ -20,10 +20,10 @@ Don't forget to follow me on social media:
 # 🧭 Custom Sidebar & Header for Home Assistant
 [🇮🇹 Italiano](README.it.md)
 
-## 📸 Screenshots
-
+# Header Flip Mode
 ![Header flip animation](img/Header-Flip_Mode.gif)
 
+## 📸 Screenshots
 <p align="center">
   <img src="img/1.PNG" width="48%">
   <img src="img/2.PNG" width="48%">
