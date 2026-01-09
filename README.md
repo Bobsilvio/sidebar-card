@@ -22,6 +22,8 @@ Don't forget to follow me on social media:
 
 ## 📸 Screenshots
 
+![Header flip animation](img/Header-Flip_Mode.gif)
+
 <p align="center">
   <img src="img/1.PNG" width="48%">
   <img src="img/2.PNG" width="48%">
