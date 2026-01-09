@@ -651,13 +651,17 @@ async function build() {
           headerHost!.style.zIndex = '1';
         }
 
-        (window as any).silvioFlipTopMenu = () => {
-          try {
-            triggerHeaderFlip(headerHost!, appLayout, headerWrapper!, viewEl!, flipPauseMs);
-          } catch (_e) {
-            // ignore
-          }
-        };
+        if (topMenuMode === 'flip') {
+          (window as any).silvioFlipTopMenu = () => {
+            try {
+              triggerHeaderFlip(headerHost!, appLayout, headerWrapper!, viewEl!, flipPauseMs);
+            } catch (_e) {
+              // ignore
+            }
+          };
+        } else {
+          delete (window as any).silvioFlipTopMenu;
+        }
 
         if ((window as any).__silvioFlipActive === true) return;
 
