@@ -1,13 +1,14 @@
 // src/SidebarCard.ts
 // ------------------------------------------------------------------------------------------
 //  SIDEBAR-CARD (COMPONENT ONLY) - Original DBuit + Bobsilvio mod
+//  VERSIONE OTTIMIZZATA - Performance improvements
 // ------------------------------------------------------------------------------------------
 
 import { css, html, LitElement } from 'lit-element';
 import { moreInfo } from 'card-tools/src/more-info';
 import { hass, provideHass } from 'card-tools/src/hass';
 import { subscribeRenderTemplate } from 'card-tools/src/templates';
-import moment from 'moment/min/moment-with-locales';
+// OTTIMIZZATO: Rimosso moment.js (-70KB), uso Intl API nativo
 import { forwardHaptic, navigate, toggleEntity } from 'custom-card-helpers';
 
 import {
@@ -37,6 +38,9 @@ export class SidebarCard extends LitElement {
   _clockInterval: any = null;
   _dateInterval: any = null;
   _boundLocationChange: any;
+  _intersectionObserver: IntersectionObserver | null = null; // OTTIMIZZATO: Per pause clock quando non visibile
+  _updateMenuTimeout: ReturnType<typeof setTimeout> | null = null; // OTTIMIZZATO: Debounce update menu
+  _lastActivePath = ''; // OTTIMIZZATO: Cache last path
 
   static get properties() {
     return {
@@ -48,8 +52,10 @@ export class SidebarCard extends LitElement {
 
   constructor() {
     super();
+    // OTTIMIZZATO: Debounce update menu per evitare chiamate multiple durante navigazione
     this._boundLocationChange = () => {
-      setTimeout(() => this._updateActiveMenu(), 50);
+      if (this._updateMenuTimeout) clearTimeout(this._updateMenuTimeout);
+      this._updateMenuTimeout = setTimeout(() => this._updateActiveMenu(), 100);
     };
   }
 
@@ -59,21 +65,77 @@ export class SidebarCard extends LitElement {
 
     if (!this.config) return;
 
-    const self = this;
-
-    if ((this.config.clock || this.config.digitalClock) && !this._clockInterval) {
-      const inc = 1000;
-      setTimeout(() => self._runClock(), 50);
-      this._clockInterval = setInterval(() => self._runClock(), inc);
-    }
-
-    if (this.config.date && !this._dateInterval) {
-      const inc = 1000 * 60 * 60;
-      setTimeout(() => self._runDate(), 50);
-      this._dateInterval = setInterval(() => self._runDate(), inc);
-    }
+    // OTTIMIZZATO: Setup IntersectionObserver per pausare clock quando non visibile
+    this._setupVisibilityObserver();
 
     this._updateActiveMenu();
+  }
+
+  disconnectedCallback() {
+    super.disconnectedCallback();
+    window.removeEventListener('location-changed', this._boundLocationChange);
+    this._stopClock();
+    this._stopDate();
+    
+    // Cleanup IntersectionObserver
+    if (this._intersectionObserver) {
+      this._intersectionObserver.disconnect();
+      this._intersectionObserver = null;
+    }
+  }
+
+  // OTTIMIZZATO: Osserva visibilità per pausare/riprendere clock
+  private _setupVisibilityObserver() {
+    if (!this.config.clock && !this.config.digitalClock && !this.config.date) return;
+
+    this._intersectionObserver = new IntersectionObserver((entries) => {
+      entries.forEach(entry => {
+        if (entry.isIntersecting) {
+          // Visibile: avvia clock/date
+          if (this.config.clock || this.config.digitalClock) {
+            this._startClock();
+          }
+          if (this.config.date) {
+            this._startDate();
+          }
+        } else {
+          // Non visibile: ferma clock/date per risparmiare risorse
+          this._stopClock();
+          this._stopDate();
+        }
+      });
+    }, { threshold: 0.1 });
+
+    this._intersectionObserver.observe(this);
+  }
+
+  private _startClock() {
+    if (this._clockInterval) return; // Già attivo
+    const self = this;
+    self._runClock(); // Esegui subito
+    this._clockInterval = setInterval(() => self._runClock(), 1000);
+  }
+
+  private _stopClock() {
+    if (this._clockInterval) {
+      clearInterval(this._clockInterval);
+      this._clockInterval = null;
+    }
+  }
+
+  private _startDate() {
+    if (this._dateInterval) return; // Già attivo
+    const self = this;
+    self._runDate(); // Esegui subito
+    const inc = 1000 * 60 * 60; // 1 ora
+    this._dateInterval = setInterval(() => self._runDate(), inc);
+  }
+
+  private _stopDate() {
+    if (this._dateInterval) {
+      clearInterval(this._dateInterval);
+      this._dateInterval = null;
+    }
   }
 
   render() {
@@ -309,82 +371,96 @@ export class SidebarCard extends LitElement {
     `;
   }
 
+  // OTTIMIZZATO: Usa codice più efficiente e chiaro
   _runClock() {
-    let hoursampm;
-    let digitalTime;
     const date = new Date();
-
-    let fullHours = date.getHours().toString();
-    const realHours = date.getHours();
-    const hours = ((realHours + 11) % 12) + 1;
+    const hours = date.getHours();
     const minutes = date.getMinutes();
     const seconds = date.getSeconds();
 
-    const hour = Math.floor((hours * 60 + minutes) / 2);
-    const minute = minutes * 6;
-    const second = seconds * 6;
-
+    // Clock analogico
     if (this.clock) {
-      (this.shadowRoot!.querySelector('.hour') as HTMLElement).style.transform = `rotate(${hour}deg)`;
-      (this.shadowRoot!.querySelector('.minute') as HTMLElement).style.transform = `rotate(${minute}deg)`;
-      (this.shadowRoot!.querySelector('.second') as HTMLElement).style.transform = `rotate(${second}deg)`;
+      const hourDeg = ((hours % 12) * 30) + (minutes * 0.5);
+      const minuteDeg = minutes * 6;
+      const secondDeg = seconds * 6;
+
+      const hourEl = this.shadowRoot!.querySelector('.hour') as HTMLElement;
+      const minuteEl = this.shadowRoot!.querySelector('.minute') as HTMLElement;
+      const secondEl = this.shadowRoot!.querySelector('.second') as HTMLElement;
+
+      if (hourEl) hourEl.style.transform = `rotate(${hourDeg}deg)`;
+      if (minuteEl) minuteEl.style.transform = `rotate(${minuteDeg}deg)`;
+      if (secondEl) secondEl.style.transform = `rotate(${secondDeg}deg)`;
     }
 
-    if (this.digitalClock && !this.twelveHourVersion) {
-      const minutesString = minutes.toString();
-      digitalTime = fullHours.length < 2 ? '0' + fullHours + ':' : fullHours + ':';
+    // Clock digitale - OTTIMIZZATO: Usa Intl.DateTimeFormat invece di moment
+    if (this.digitalClock) {
+      const lang = (this.hass && this.hass.language) || navigator.language || 'en';
+      const options: Intl.DateTimeFormatOptions = {
+        hour: '2-digit',
+        minute: '2-digit',
+        hour12: this.twelveHourVersion,
+      };
+      
       if (this.digitalClockWithSeconds) {
-        digitalTime += minutesString.length < 2 ? '0' + minutesString + ':' : minutesString + ':';
-        const secondsString = seconds.toString();
-        digitalTime += secondsString.length < 2 ? '0' + secondsString : secondsString;
-      } else {
-        digitalTime += minutesString.length < 2 ? '0' + minutesString : minutesString;
+        options.second = '2-digit';
       }
-      (this.shadowRoot!.querySelector('.digitalClock') as HTMLElement).textContent = digitalTime;
-    } else if (this.digitalClock && this.twelveHourVersion && !this.period) {
-      hoursampm = date.getHours();
-      hoursampm = hoursampm % 12;
-      hoursampm = hoursampm ? hoursampm : 12;
-      fullHours = hoursampm.toString();
-      const minutesString = minutes.toString();
-      digitalTime = fullHours.length < 2 ? '0' + fullHours + ':' : fullHours + ':';
-      if (this.digitalClockWithSeconds) {
-        digitalTime += minutesString.length < 2 ? '0' + minutesString + ':' : minutesString + ':';
-        const secondsString = seconds.toString();
-        digitalTime += secondsString.length < 2 ? '0' + secondsString : secondsString;
-      } else {
-        digitalTime += minutesString.length < 2 ? '0' + minutesString : minutesString;
+
+      const formatter = new Intl.DateTimeFormat(lang, options);
+      let digitalTime = formatter.format(date);
+
+      // Aggiungi periodo AM/PM se richiesto (per lingue che non lo includono di default)
+      if (this.twelveHourVersion && this.period) {
+        const ampm = hours >= 12 ? 'pm' : 'am';
+        if (!digitalTime.toLowerCase().includes('am') && !digitalTime.toLowerCase().includes('pm')) {
+          digitalTime += ' ' + ampm;
+        }
       }
-      (this.shadowRoot!.querySelector('.digitalClock') as HTMLElement).textContent = digitalTime;
-    } else if (this.digitalClock && this.twelveHourVersion && this.period) {
-      const ampm = realHours >= 12 ? 'pm' : 'am';
-      hoursampm = date.getHours();
-      hoursampm = hoursampm % 12;
-      hoursampm = hoursampm ? hoursampm : 12;
-      fullHours = hoursampm.toString();
-      const minutesString = minutes.toString();
-      digitalTime = fullHours.length < 2 ? '0' + fullHours + ':' : fullHours + ':';
-      if (this.digitalClockWithSeconds) {
-        digitalTime += minutesString.length < 2 ? '0' + minutesString + ':' : minutesString + ':';
-        const secondsString = seconds.toString();
-        digitalTime += secondsString.length < 2 ? '0' + secondsString : secondsString;
-      } else {
-        digitalTime += minutesString.length < 2 ? '0' + minutesString : minutesString;
+
+      const digitalClockEl = this.shadowRoot!.querySelector('.digitalClock') as HTMLElement;
+      if (digitalClockEl) {
+        digitalClockEl.textContent = digitalTime;
       }
-      digitalTime += ' ' + ampm;
-      (this.shadowRoot!.querySelector('.digitalClock') as HTMLElement).textContent = digitalTime;
     }
   }
 
+  // OTTIMIZZATO: Usa Intl.DateTimeFormat invece di moment
   _runDate() {
     if (!this.shadowRoot) return;
     const dateEl = this.shadowRoot.querySelector('.date');
     if (!dateEl) return;
 
-    const now = moment();
+    const now = new Date();
     const lang = (this.hass && this.hass.language) || navigator.language || 'en';
-    now.locale(lang);
-    (dateEl as HTMLElement).textContent = now.format(this.dateFormat);
+    
+    // Converti formato moment in opzioni Intl
+    // Es: "DD MMMM" -> { day: '2-digit', month: 'long' }
+    const options: Intl.DateTimeFormatOptions = {};
+    
+    if (this.dateFormat.includes('DD')) {
+      options.day = '2-digit';
+    } else if (this.dateFormat.includes('D')) {
+      options.day = 'numeric';
+    }
+    
+    if (this.dateFormat.includes('MMMM')) {
+      options.month = 'long';
+    } else if (this.dateFormat.includes('MMM')) {
+      options.month = 'short';
+    } else if (this.dateFormat.includes('MM')) {
+      options.month = '2-digit';
+    } else if (this.dateFormat.includes('M')) {
+      options.month = 'numeric';
+    }
+    
+    if (this.dateFormat.includes('YYYY')) {
+      options.year = 'numeric';
+    } else if (this.dateFormat.includes('YY')) {
+      options.year = '2-digit';
+    }
+
+    const formatter = new Intl.DateTimeFormat(lang, options);
+    (dateEl as HTMLElement).textContent = formatter.format(now);
   }
 
   updateSidebarSize() {
@@ -423,12 +499,15 @@ export class SidebarCard extends LitElement {
       self.updateSidebarSize();
     }, 350);
 
+    // OTTIMIZZATO: Debounce sul resize per evitare lag
+    let resizeTimeout: ReturnType<typeof setTimeout> | null = null;
     window.addEventListener(
       'resize',
       () => {
-        setTimeout(() => {
+        if (resizeTimeout) clearTimeout(resizeTimeout);
+        resizeTimeout = setTimeout(() => {
           self.updateSidebarSize();
-        }, 1);
+        }, 100); // 100ms debounce
       },
       true,
     );
@@ -505,22 +584,31 @@ export class SidebarCard extends LitElement {
     }
   }
 
+  // OTTIMIZZATO: Cache path per evitare update inutili
   _updateActiveMenu() {
-    if (this.updateMenu) {
-      this.shadowRoot!
-        .querySelectorAll('ul.sidebarMenu li[data-type="navigate"]')
-        .forEach((menuItem) => {
-          (menuItem as HTMLElement).classList.remove('active');
-        });
-
-      const activeEl = this.shadowRoot!.querySelector(
-        'ul.sidebarMenu li[data-path="' + document.location.pathname + '"]',
-      ) as HTMLElement | null;
-
-      if (activeEl) {
-        activeEl.classList.add('active');
-      }
+    if (!this.updateMenu) return;
+    
+    const currentPath = document.location.pathname;
+    
+    // Skip se stesso path
+    if (currentPath === this._lastActivePath) return;
+    
+    // Rimuovi active da tutti
+    const menuItems = this.shadowRoot!.querySelectorAll('ul.sidebarMenu li[data-type="navigate"]');
+    for (let i = 0; i < menuItems.length; i++) {
+      (menuItems[i] as HTMLElement).classList.remove('active');
     }
+
+    // Aggiungi active al corrente
+    const activeEl = this.shadowRoot!.querySelector(
+      `ul.sidebarMenu li[data-path="${currentPath}"]`
+    ) as HTMLElement | null;
+
+    if (activeEl) {
+      activeEl.classList.add('active');
+    }
+    
+    this._lastActivePath = currentPath;
   }
 
   _menuAction(ev: Event) {

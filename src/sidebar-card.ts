@@ -630,28 +630,48 @@ async function build() {
         const haHeaderEl = getHaHeaderEl();
         if (!haHeaderEl) return;
 
+        // OTTIMIZZATO: Usa scheduleHeaderLayout invece di chiamate multiple
+        let layoutScheduled = false;
+        const scheduleHeaderLayout = () => {
+          if (layoutScheduled) return;
+          layoutScheduled = true;
+          requestAnimationFrame(() => {
+            applyHeaderLayout();
+            layoutScheduled = false;
+          });
+        };
+
         const mo = new MutationObserver(() => {
-          applyHeaderLayout();
-          requestAnimationFrame(() => applyHeaderLayout());
+          scheduleHeaderLayout();
         });
 
         mo.observe(haHeaderEl, { attributes: true, attributeFilter: ['style', 'class', 'hidden'] });
         (window as any)[obsKey] = mo;
+        (window as any)[obsKey + '_schedule'] = scheduleHeaderLayout;
       };
 
+      // OTTIMIZZATO: Cache per evitare getComputedStyle ripetuto
+      let lastHeaderHeight = 0;
+      let lastHeaderVisible = false;
+
       const applyHeaderLayout = () => {
-        // 4) sticky / non-sticky
+        // 1) sticky / non-sticky - applica solo se necessario
         if (sticky) {
-          headerHost!.style.position = 'sticky';
-          headerHost!.style.top = '0px';
-          headerHost!.style.zIndex = '1000';
+          if (headerHost!.style.position !== 'sticky') {
+            headerHost!.style.position = 'sticky';
+            headerHost!.style.top = '0px';
+            headerHost!.style.zIndex = '1000';
+          }
         } else {
-          headerHost!.style.position = 'relative';
-          headerHost!.style.top = '0px';
-          headerHost!.style.zIndex = '1';
+          if (headerHost!.style.position !== 'relative') {
+            headerHost!.style.position = 'relative';
+            headerHost!.style.top = '0px';
+            headerHost!.style.zIndex = '1';
+          }
         }
 
-        if (topMenuMode === 'flip') {
+        // 2) Setup flip function
+        if (topMenuMode === 'flip' && !(window as any).silvioFlipTopMenu) {
           (window as any).silvioFlipTopMenu = () => {
             try {
               triggerHeaderFlip(headerHost!, appLayout, headerWrapper!, viewEl!, flipPauseMs);
@@ -659,32 +679,67 @@ async function build() {
               // ignore
             }
           };
-        } else {
+        } else if (topMenuMode !== 'flip' && (window as any).silvioFlipTopMenu) {
           delete (window as any).silvioFlipTopMenu;
         }
 
+        // 3) Skip se flip attivo
         if ((window as any).__silvioFlipActive === true) return;
 
+        // 4) Ottimizzato: cache haHeaderEl
         const haHeaderEl = getHaHeaderEl();
-        const haHeaderVisible =
-          !!haHeaderEl && window.getComputedStyle(haHeaderEl).display !== 'none';
+        if (!haHeaderEl) {
+          if (headerWrapper!.style.paddingTop !== '0px') {
+            headerWrapper!.style.paddingTop = '0px';
+            viewEl.style.removeProperty('padding-top');
+          }
+          return;
+        }
 
-        const haHeaderHeight =
-          haHeaderVisible ? Math.round(haHeaderEl!.getBoundingClientRect().height) : 0;
+        // 5) Check visibilità (usa inline style quando possibile)
+        const display = haHeaderEl.style.display;
+        const haHeaderVisible = display !== 'none' && 
+          (display === 'flex' || display === 'block' || display === '' || 
+           window.getComputedStyle(haHeaderEl).display !== 'none');
 
-          const basePaddingTop = haHeaderVisible ? 50 : 0;
+        // 6) Calcola height solo se necessario
+        let haHeaderHeight = 0;
+        if (haHeaderVisible) {
+          if (haHeaderVisible !== lastHeaderVisible) {
+            haHeaderHeight = Math.round(haHeaderEl.getBoundingClientRect().height);
+            lastHeaderHeight = haHeaderHeight;
+          } else {
+            haHeaderHeight = lastHeaderHeight;
+          }
+        }
+        lastHeaderVisible = haHeaderVisible;
+
+        // 7) Applica padding solo se cambiato
+        const basePaddingTop = haHeaderVisible ? 50 : 0;
+        let targetPadding: string;
 
         if ((topMenuMode === 'push' || topMenuMode === 'flip') && haHeaderHeight > 0) {
-          headerWrapper!.style.paddingTop = `${haHeaderHeight}px`;
-          viewEl.style.paddingTop = '0px';
+          targetPadding = `${haHeaderHeight}px`;
+          if (headerWrapper!.style.paddingTop !== targetPadding) {
+            headerWrapper!.style.paddingTop = targetPadding;
+            viewEl.style.paddingTop = '0px';
+          }
         } else {
-          headerWrapper!.style.paddingTop = `${basePaddingTop}px`;
-          viewEl.style.removeProperty('padding-top');
+          targetPadding = `${basePaddingTop}px`;
+          if (headerWrapper!.style.paddingTop !== targetPadding) {
+            headerWrapper!.style.paddingTop = targetPadding;
+            viewEl.style.removeProperty('padding-top');
+          }
         }
       };
 
-      applyHeaderLayout();
-      requestAnimationFrame(() => applyHeaderLayout());
+      // OTTIMIZZATO: Usa schedule invece di chiamate multiple
+      const scheduleFunc = (window as any)[obsKey + '_schedule'];
+      if (scheduleFunc) {
+        scheduleFunc();
+      } else {
+        applyHeaderLayout();
+      }
 
       attachHaHeaderObserver();
 
@@ -692,9 +747,21 @@ async function build() {
       const prev = (window as any)[key] as ((...args: any[]) => void) | undefined;
       if (prev) window.removeEventListener('resize', prev);
 
-      const onResize = () => applyHeaderLayout();
+      // OTTIMIZZATO: Debounce resize
+      let resizeTimeout: ReturnType<typeof setTimeout> | null = null;
+      const onResize = () => {
+        if (resizeTimeout) clearTimeout(resizeTimeout);
+        resizeTimeout = setTimeout(() => {
+          const scheduleFunc = (window as any)[obsKey + '_schedule'];
+          if (scheduleFunc) {
+            scheduleFunc();
+          } else {
+            applyHeaderLayout();
+          }
+        }, 150);
+      };
       (window as any)[key] = onResize;
-      window.addEventListener('resize', onResize);
+      window.addEventListener('resize', onResize, { passive: true });
       
     }
   } else {

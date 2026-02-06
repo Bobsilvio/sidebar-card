@@ -10,16 +10,30 @@ const dev = process.env.ROLLUP_WATCH;
 export default {
   input: 'src/sidebar-card.ts',
   output: {
-    dir: 'dist',
+    file: 'dist/sidebar-card.js',
     format: 'es',
-    sourcemap: false,
+    sourcemap: false, // Disabilita completamente i source maps
+    sourcemapExcludeSources: true, // Non includere sorgenti nei source maps
+    inlineDynamicImports: true,
   },
   plugins: [
-    nodeResolve(),
+    nodeResolve({
+      browser: true, // Usa le versioni browser dei moduli
+      preferBuiltins: false,
+    }),
     commonjs(),
     typescript({
       typescript: require('typescript'),
       objectHashIgnoreUnknownHack: true,
+      tsconfigOverride: {
+        compilerOptions: {
+          sourceMap: false, // Disabilita source maps in TypeScript
+          inlineSourceMap: false,
+          inlineSources: false,
+          declaration: false,
+          declarationMap: false,
+        },
+      },
     }),
     json(),
     dev &&
@@ -31,6 +45,24 @@ export default {
           'Access-Control-Allow-Origin': '*',
         },
       }),
-    !dev && terser(),
+    !dev && terser({
+      compress: {
+        drop_console: false, // Mantieni i console.log se necessario
+      },
+      output: {
+        comments: false, // Rimuovi tutti i commenti (inclusi i riferimenti ai source maps)
+      },
+    }),
   ].filter(Boolean),
+  
+  // Silenzia warning innocui
+  onwarn(warning, warn) {
+    // Ignora warning "this is undefined" per librerie esterne
+    if (warning.code === 'THIS_IS_UNDEFINED') return;
+    // Ignora warning per circular dependencies in node_modules
+    if (warning.code === 'CIRCULAR_DEPENDENCY' && warning.importer?.includes('node_modules')) return;
+    // Mostra altri warning
+    warn(warning);
+  },
 };
+

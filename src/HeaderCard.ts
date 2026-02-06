@@ -21,6 +21,7 @@ export class HeaderCard extends LitElement {
       config: {},
     };
   }
+  
 
   setConfig(config: AnyObj) {
     this.config = config;
