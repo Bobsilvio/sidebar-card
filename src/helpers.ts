@@ -212,13 +212,16 @@ const HEADER_CACHE_TTL = 2000; // 2 secondi
 
 export function getHeaderHeightPx() {
   const now = Date.now();
-  
+
   // Usa cache se valida
-  if (cachedHeaderHeight && (now - cachedHeaderHeight.timestamp) < HEADER_CACHE_TTL) {
+  if (
+    cachedHeaderHeight &&
+    now - cachedHeaderHeight.timestamp < HEADER_CACHE_TTL
+  ) {
     return cachedHeaderHeight.value;
   }
 
-  let headerHeightPx = '0px';
+  let headerHeightPx = "0px";
   const root = getRoot();
   const shadow = root?.shadowRoot as ShadowRoot | null;
 
@@ -227,7 +230,7 @@ export function getHeaderHeightPx() {
     return headerHeightPx;
   }
 
-  const view = shadow.getElementById('view') as HTMLElement | null;
+  const view = shadow.getElementById("view") as HTMLElement | null;
   if (view) {
     try {
       const computed = window.getComputedStyle(view);
@@ -236,13 +239,11 @@ export function getHeaderHeightPx() {
       }
     } catch (e) {
       // Fallback in caso di errore
-      headerHeightPx = '0px';
+      headerHeightPx = "0px";
     }
   }
 
   cachedHeaderHeight = { value: headerHeightPx, timestamp: now };
-  return headerHeightPx;
-}
   return headerHeightPx;
 }
 
@@ -663,6 +664,66 @@ export function isTopMenuHidden(): boolean {
   const inline = haHeader.style.display;
   const computed = window.getComputedStyle(haHeader).display;
   return inline === "none" || computed === "none";
+}
+
+// OTTIMIZZATO: Performance monitoring per debug Firefox
+class PerformanceMonitor {
+  private metrics: Map<string, number[]> = new Map();
+  private lastTime: Map<string, number> = new Map();
+
+  start(key: string) {
+    this.lastTime.set(key, performance.now());
+  }
+
+  end(key: string) {
+    const start = this.lastTime.get(key);
+    if (!start) return;
+
+    const duration = performance.now() - start;
+    const times = this.metrics.get(key) || [];
+    times.push(duration);
+
+    // Keep only last 50 measurements
+    if (times.length > 50) times.shift();
+    this.metrics.set(key, times);
+
+    // Warn se troppo lento (solo in debug)
+    if (duration > 16 && Math.random() < 0.1) {
+      // 10% sampling
+      console.warn(
+        `[SIDEBAR-CARD] Slow operation: ${key} took ${duration.toFixed(2)}ms`
+      );
+    }
+  }
+
+  getAverage(key: string): number {
+    const times = this.metrics.get(key);
+    if (!times || times.length === 0) return 0;
+    return times.reduce((a, b) => a + b, 0) / times.length;
+  }
+
+  // Debug utility per Firefox
+  report() {
+    console.group("[SIDEBAR-CARD] Performance Report");
+    for (const [key, times] of this.metrics) {
+      const avg = this.getAverage(key);
+      const max = Math.max(...times);
+      console.log(
+        `${key}: avg=${avg.toFixed(2)}ms max=${max.toFixed(2)}ms count=${
+          times.length
+        }`
+      );
+    }
+    console.groupEnd();
+  }
+}
+
+export const perfMonitor = new PerformanceMonitor();
+
+// Esponi globalmente per debug
+if (typeof window !== "undefined") {
+  (window as any).__sidebarPerfMonitor = perfMonitor;
+  console.log("[SIDEBAR-CARD] Performance monitor loaded:", perfMonitor);
 }
 
 export function toggleTopMenuRuntime() {

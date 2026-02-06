@@ -4,12 +4,12 @@
 //  VERSIONE OTTIMIZZATA - Performance improvements
 // ------------------------------------------------------------------------------------------
 
-import { css, html, LitElement } from 'lit-element';
-import { moreInfo } from 'card-tools/src/more-info';
-import { hass, provideHass } from 'card-tools/src/hass';
-import { subscribeRenderTemplate } from 'card-tools/src/templates';
+import { css, html, LitElement } from "lit-element";
+import { moreInfo } from "card-tools/src/more-info";
+import { hass, provideHass } from "card-tools/src/hass";
+import { subscribeRenderTemplate } from "card-tools/src/templates";
 // OTTIMIZZATO: Rimosso moment.js (-70KB), uso Intl API nativo
-import { forwardHaptic, navigate, toggleEntity } from 'custom-card-helpers';
+import { forwardHaptic, navigate, toggleEntity } from "custom-card-helpers";
 
 import {
   setTopMenuVisible,
@@ -17,7 +17,8 @@ import {
   log2console,
   error2console,
   createElementFromHTML,
-} from './helpers';
+  perfMonitor
+} from "./helpers";
 
 export class SidebarCard extends LitElement {
   config: any;
@@ -31,22 +32,22 @@ export class SidebarCard extends LitElement {
   digitalClockWithSeconds = false;
   period = false;
   date = false;
-  dateFormat = 'DD MMMM';
+  dateFormat = "DD MMMM";
   bottomCard: any = null;
-  CUSTOM_TYPE_PREFIX = 'custom:';
+  CUSTOM_TYPE_PREFIX = "custom:";
 
   _clockInterval: any = null;
   _dateInterval: any = null;
   _boundLocationChange: any;
   _intersectionObserver: IntersectionObserver | null = null; // OTTIMIZZATO: Per pause clock quando non visibile
   _updateMenuTimeout: ReturnType<typeof setTimeout> | null = null; // OTTIMIZZATO: Debounce update menu
-  _lastActivePath = ''; // OTTIMIZZATO: Cache last path
+  _lastActivePath = ""; // OTTIMIZZATO: Cache last path
 
   static get properties() {
     return {
       hass: {},
       config: {},
-      active: {},
+      active: {}
     };
   }
 
@@ -61,22 +62,26 @@ export class SidebarCard extends LitElement {
 
   connectedCallback() {
     super.connectedCallback();
-    window.addEventListener('location-changed', this._boundLocationChange);
+    window.addEventListener("location-changed", this._boundLocationChange);
 
     if (!this.config) return;
 
     // OTTIMIZZATO: Setup IntersectionObserver per pausare clock quando non visibile
     this._setupVisibilityObserver();
 
+    // OTTIMIZZATO: Pulisci intervalli esistenti prima di creare nuovi
+    this._stopClock();
+    this._stopDate();
+
     this._updateActiveMenu();
   }
 
   disconnectedCallback() {
     super.disconnectedCallback();
-    window.removeEventListener('location-changed', this._boundLocationChange);
+    window.removeEventListener("location-changed", this._boundLocationChange);
     this._stopClock();
     this._stopDate();
-    
+
     // Cleanup IntersectionObserver
     if (this._intersectionObserver) {
       this._intersectionObserver.disconnect();
@@ -86,34 +91,48 @@ export class SidebarCard extends LitElement {
 
   // OTTIMIZZATO: Osserva visibilità per pausare/riprendere clock
   private _setupVisibilityObserver() {
-    if (!this.config.clock && !this.config.digitalClock && !this.config.date) return;
+    if (!this.config.clock && !this.config.digitalClock && !this.config.date)
+      return;
 
-    this._intersectionObserver = new IntersectionObserver((entries) => {
-      entries.forEach(entry => {
-        if (entry.isIntersecting) {
-          // Visibile: avvia clock/date
-          if (this.config.clock || this.config.digitalClock) {
-            this._startClock();
+    this._intersectionObserver = new IntersectionObserver(
+      entries => {
+        entries.forEach(entry => {
+          if (entry.isIntersecting) {
+            // Visibile: avvia clock/date
+            if (this.config.clock || this.config.digitalClock) {
+              this._startClock();
+            }
+            if (this.config.date) {
+              this._startDate();
+            }
+          } else {
+            // Non visibile: ferma clock/date per risparmiare risorse
+            this._stopClock();
+            this._stopDate();
           }
-          if (this.config.date) {
-            this._startDate();
-          }
-        } else {
-          // Non visibile: ferma clock/date per risparmiare risorse
-          this._stopClock();
-          this._stopDate();
-        }
-      });
-    }, { threshold: 0.1 });
+        });
+      },
+      { threshold: 0.1 }
+    );
 
     this._intersectionObserver.observe(this);
   }
 
   private _startClock() {
-    if (this._clockInterval) return; // Già attivo
+    if (this._clockInterval) {
+      clearInterval(this._clockInterval); // Pulisci primo
+    }
     const self = this;
     self._runClock(); // Esegui subito
-    this._clockInterval = setInterval(() => self._runClock(), 1000);
+    // OTTIMIZZATO: Usa timeout più preciso e riduce stress su Firefox
+    this._clockInterval = setInterval(() => {
+      if (self.isConnected) {
+        // Verifica ancora nel DOM
+        self._runClock();
+      } else {
+        self._stopClock(); // Auto-pulizia
+      }
+    }, 997); // Evita allineamento con altri timer
   }
 
   private _stopClock() {
@@ -124,11 +143,20 @@ export class SidebarCard extends LitElement {
   }
 
   private _startDate() {
-    if (this._dateInterval) return; // Già attivo
+    if (this._dateInterval) {
+      clearInterval(this._dateInterval); // Pulisci primo
+    }
     const self = this;
     self._runDate(); // Esegui subito
     const inc = 1000 * 60 * 60; // 1 ora
-    this._dateInterval = setInterval(() => self._runDate(), inc);
+    // OTTIMIZZATO: Verifica connessione per evitare memory leak
+    this._dateInterval = setInterval(() => {
+      if (self.isConnected) {
+        self._runDate();
+      } else {
+        self._stopDate(); // Auto-pulizia
+      }
+    }, inc);
   }
 
   private _stopDate() {
@@ -139,13 +167,16 @@ export class SidebarCard extends LitElement {
   }
 
   render() {
+    perfMonitor.start("sidebar-render");
     const sidebarMenu = this.config.sidebarMenu;
-    const title = 'title' in this.config ? this.config.title : false;
-    const addStyle = 'style' in this.config;
-    const menuStyle = this.config.menuStyle || 'list';
+    const title = "title" in this.config ? this.config.title : false;
+    const addStyle = "style" in this.config;
+    const menuStyle = this.config.menuStyle || "list";
 
     this.clock = this.config.clock ? this.config.clock : false;
-    this.digitalClock = this.config.digitalClock ? this.config.digitalClock : false;
+    this.digitalClock = this.config.digitalClock
+      ? this.config.digitalClock
+      : false;
     this.digitalClockWithSeconds = this.config.digitalClockWithSeconds
       ? this.config.digitalClockWithSeconds
       : false;
@@ -154,9 +185,11 @@ export class SidebarCard extends LitElement {
       : false;
     this.period = this.config.period ? this.config.period : false;
     this.date = this.config.date ? this.config.date : false;
-    this.dateFormat = this.config.dateFormat ? this.config.dateFormat : 'DD MMMM';
+    this.dateFormat = this.config.dateFormat
+      ? this.config.dateFormat
+      : "DD MMMM";
     this.bottomCard = this.config.bottomCard ? this.config.bottomCard : null;
-    this.updateMenu = this.config.hasOwnProperty('updateMenu')
+    this.updateMenu = this.config.hasOwnProperty("updateMenu")
       ? this.config.updateMenu
       : true;
 
@@ -173,13 +206,13 @@ export class SidebarCard extends LitElement {
         ${this.digitalClock
           ? html`
               <h1
-                class="digitalClock${title ? ' with-title' : ''}${
-                  this.digitalClockWithSeconds ? ' with-seconds' : ''
-                }"
+                class="digitalClock${title ? " with-title" : ""}${this
+                  .digitalClockWithSeconds
+                  ? " with-seconds"
+                  : ""}"
               ></h1>
             `
           : html``}
-
         ${this.clock
           ? html`
               <div class="clock">
@@ -192,65 +225,65 @@ export class SidebarCard extends LitElement {
               </div>
             `
           : html``}
-
         ${title
           ? html`
               <h1 class="title">${title}</h1>
             `
           : html``}
-
         ${this.date
           ? html`
               <h2 class="date"></h2>
             `
           : html``}
-
         ${sidebarMenu && sidebarMenu.length > 0
           ? html`
               <ul
                 class="sidebarMenu
-                ${menuStyle === 'buttons' ? 'sidebarMenu--buttons' : ''}
-                ${menuStyle === 'wide' ? 'sidebarMenu--wide' : ''}
-                ${menuStyle === 'grid' ? 'sidebarMenu--grid' : ''}"
+                ${menuStyle === "buttons" ? "sidebarMenu--buttons" : ""}
+                ${menuStyle === "wide" ? "sidebarMenu--wide" : ""}
+                ${menuStyle === "grid" ? "sidebarMenu--grid" : ""}"
               >
                 ${(sidebarMenu || [])
-                  .filter((item: any) => this._evaluateVisibleCondition(item.conditional, this.hass))
+                  .filter((item: any) =>
+                    this._evaluateVisibleCondition(item.conditional, this.hass)
+                  )
                   .map((sidebarMenuItem: any) => {
                     const isActive =
                       sidebarMenuItem.state &&
                       this.hass.states[sidebarMenuItem.state] &&
-                      this.hass.states[sidebarMenuItem.state].state != 'off' &&
-                      this.hass.states[sidebarMenuItem.state].state != 'unavailable';
+                      this.hass.states[sidebarMenuItem.state].state != "off" &&
+                      this.hass.states[sidebarMenuItem.state].state !=
+                        "unavailable";
 
-                    const bg = sidebarMenuItem.background_color || '';
-                    const iconColor = sidebarMenuItem.icon_color || '';
+                    const bg = sidebarMenuItem.background_color || "";
+                    const iconColor = sidebarMenuItem.icon_color || "";
 
                     const styleStr = `
                       ${
                         bg
                           ? `--sidebar-button-bg:${bg};--sidebar-wide-bg:${bg};--sidebar-grid-bg:${bg};`
-                          : ''
+                          : ""
                       }
                       ${
                         iconColor
                           ? `--sidebar-button-icon-color:${iconColor};--sidebar-wide-icon-color:${iconColor};--sidebar-grid-icon-color:${iconColor};`
-                          : ''
+                          : ""
                       }
                     `;
 
                     // === STILE "buttons"
-                    if (menuStyle === 'buttons') {
+                    if (menuStyle === "buttons") {
                       const withLabel = this.config.showLabel === true;
                       return html`
                         <li
                           @click="${(ev: Event) => this._menuAction(ev)}"
                           class="sidebar-item-button ${withLabel
-                            ? 'sidebar-item-button--with-label'
-                            : ''} ${isActive ? 'active' : ''}"
+                            ? "sidebar-item-button--with-label"
+                            : ""} ${isActive ? "active" : ""}"
                           data-type="${sidebarMenuItem.action}"
                           data-path="${sidebarMenuItem.navigation_path
                             ? sidebarMenuItem.navigation_path
-                            : ''}"
+                            : ""}"
                           data-menuitem="${JSON.stringify(sidebarMenuItem)}"
                           style="${styleStr}"
                         >
@@ -265,22 +298,26 @@ export class SidebarCard extends LitElement {
                               : html``}
                           </div>
                           ${withLabel
-                            ? html`<span class="sidebar-label">${sidebarMenuItem.name}</span>`
+                            ? html`
+                                <span class="sidebar-label"
+                                  >${sidebarMenuItem.name}</span
+                                >
+                              `
                             : html``}
                         </li>
                       `;
                     }
 
                     // === STILE "wide"
-                    if (menuStyle === 'wide') {
+                    if (menuStyle === "wide") {
                       return html`
                         <li
                           @click="${(ev: Event) => this._menuAction(ev)}"
-                          class="sidebar-item-wide ${isActive ? 'active' : ''}"
+                          class="sidebar-item-wide ${isActive ? "active" : ""}"
                           data-type="${sidebarMenuItem.action}"
                           data-path="${sidebarMenuItem.navigation_path
                             ? sidebarMenuItem.navigation_path
-                            : ''}"
+                            : ""}"
                           data-menuitem="${JSON.stringify(sidebarMenuItem)}"
                           style="${styleStr}"
                         >
@@ -292,25 +329,29 @@ export class SidebarCard extends LitElement {
                                 ></ha-icon>
                               `
                             : html``}
-                          <span class="sidebar-label">${sidebarMenuItem.name}</span>
+                          <span class="sidebar-label"
+                            >${sidebarMenuItem.name}</span
+                          >
                         </li>
                       `;
                     }
 
                     // === STILE "grid"
-                    if (menuStyle === 'grid') {
+                    if (menuStyle === "grid") {
                       return html`
                         <li
                           @click="${(ev: Event) => this._menuAction(ev)}"
-                          class="sidebar-item-grid ${isActive ? 'active' : ''}"
+                          class="sidebar-item-grid ${isActive ? "active" : ""}"
                           data-type="${sidebarMenuItem.action}"
                           data-path="${sidebarMenuItem.navigation_path
                             ? sidebarMenuItem.navigation_path
-                            : ''}"
+                            : ""}"
                           data-menuitem="${JSON.stringify(sidebarMenuItem)}"
                           style="${styleStr}"
                         >
-                          <div class="sidebar-icon-wrapper sidebar-icon-wrapper-grid">
+                          <div
+                            class="sidebar-icon-wrapper sidebar-icon-wrapper-grid"
+                          >
                             ${sidebarMenuItem.icon
                               ? html`
                                   <ha-icon
@@ -320,7 +361,9 @@ export class SidebarCard extends LitElement {
                                 `
                               : html``}
                           </div>
-                          <span class="sidebar-label">${sidebarMenuItem.name}</span>
+                          <span class="sidebar-label"
+                            >${sidebarMenuItem.name}</span
+                          >
                         </li>
                       `;
                     }
@@ -329,11 +372,11 @@ export class SidebarCard extends LitElement {
                     return html`
                       <li
                         @click="${(ev: Event) => this._menuAction(ev)}"
-                        class="${isActive ? 'active' : ''}"
+                        class="${isActive ? "active" : ""}"
                         data-type="${sidebarMenuItem.action}"
                         data-path="${sidebarMenuItem.navigation_path
                           ? sidebarMenuItem.navigation_path
-                          : ''}"
+                          : ""}"
                         data-menuitem="${JSON.stringify(sidebarMenuItem)}"
                       >
                         <span>${sidebarMenuItem.name}</span>
@@ -351,17 +394,17 @@ export class SidebarCard extends LitElement {
               </ul>
             `
           : html``}
-
         ${this.config.template
           ? html`
               <ul class="template">
                 ${this.templateLines.map((line: any) => {
-                  return html`${createElementFromHTML(line)}`;
+                  return html`
+                    ${createElementFromHTML(line)}
+                  `;
                 })}
               </ul>
             `
           : html``}
-
         ${this.bottomCard
           ? html`
               <div class="bottom"></div>
@@ -369,10 +412,12 @@ export class SidebarCard extends LitElement {
           : html``}
       </div>
     `;
+    perfMonitor.end("sidebar-render");
   }
 
   // OTTIMIZZATO: Usa codice più efficiente e chiaro
   _runClock() {
+    perfMonitor.start("clock-update");
     const date = new Date();
     const hours = date.getHours();
     const minutes = date.getMinutes();
@@ -380,13 +425,13 @@ export class SidebarCard extends LitElement {
 
     // Clock analogico
     if (this.clock) {
-      const hourDeg = ((hours % 12) * 30) + (minutes * 0.5);
+      const hourDeg = (hours % 12) * 30 + minutes * 0.5;
       const minuteDeg = minutes * 6;
       const secondDeg = seconds * 6;
 
-      const hourEl = this.shadowRoot!.querySelector('.hour') as HTMLElement;
-      const minuteEl = this.shadowRoot!.querySelector('.minute') as HTMLElement;
-      const secondEl = this.shadowRoot!.querySelector('.second') as HTMLElement;
+      const hourEl = this.shadowRoot!.querySelector(".hour") as HTMLElement;
+      const minuteEl = this.shadowRoot!.querySelector(".minute") as HTMLElement;
+      const secondEl = this.shadowRoot!.querySelector(".second") as HTMLElement;
 
       if (hourEl) hourEl.style.transform = `rotate(${hourDeg}deg)`;
       if (minuteEl) minuteEl.style.transform = `rotate(${minuteDeg}deg)`;
@@ -395,15 +440,16 @@ export class SidebarCard extends LitElement {
 
     // Clock digitale - OTTIMIZZATO: Usa Intl.DateTimeFormat invece di moment
     if (this.digitalClock) {
-      const lang = (this.hass && this.hass.language) || navigator.language || 'en';
+      const lang =
+        (this.hass && this.hass.language) || navigator.language || "en";
       const options: Intl.DateTimeFormatOptions = {
-        hour: '2-digit',
-        minute: '2-digit',
-        hour12: this.twelveHourVersion,
+        hour: "2-digit",
+        minute: "2-digit",
+        hour12: this.twelveHourVersion
       };
-      
+
       if (this.digitalClockWithSeconds) {
-        options.second = '2-digit';
+        options.second = "2-digit";
       }
 
       const formatter = new Intl.DateTimeFormat(lang, options);
@@ -411,52 +457,59 @@ export class SidebarCard extends LitElement {
 
       // Aggiungi periodo AM/PM se richiesto (per lingue che non lo includono di default)
       if (this.twelveHourVersion && this.period) {
-        const ampm = hours >= 12 ? 'pm' : 'am';
-        if (!digitalTime.toLowerCase().includes('am') && !digitalTime.toLowerCase().includes('pm')) {
-          digitalTime += ' ' + ampm;
+        const ampm = hours >= 12 ? "pm" : "am";
+        if (
+          !digitalTime.toLowerCase().includes("am") &&
+          !digitalTime.toLowerCase().includes("pm")
+        ) {
+          digitalTime += " " + ampm;
         }
       }
 
-      const digitalClockEl = this.shadowRoot!.querySelector('.digitalClock') as HTMLElement;
+      const digitalClockEl = this.shadowRoot!.querySelector(
+        ".digitalClock"
+      ) as HTMLElement;
       if (digitalClockEl) {
         digitalClockEl.textContent = digitalTime;
       }
     }
+    perfMonitor.end("clock-update");
   }
 
   // OTTIMIZZATO: Usa Intl.DateTimeFormat invece di moment
   _runDate() {
     if (!this.shadowRoot) return;
-    const dateEl = this.shadowRoot.querySelector('.date');
+    const dateEl = this.shadowRoot.querySelector(".date");
     if (!dateEl) return;
 
     const now = new Date();
-    const lang = (this.hass && this.hass.language) || navigator.language || 'en';
-    
+    const lang =
+      (this.hass && this.hass.language) || navigator.language || "en";
+
     // Converti formato moment in opzioni Intl
     // Es: "DD MMMM" -> { day: '2-digit', month: 'long' }
     const options: Intl.DateTimeFormatOptions = {};
-    
-    if (this.dateFormat.includes('DD')) {
-      options.day = '2-digit';
-    } else if (this.dateFormat.includes('D')) {
-      options.day = 'numeric';
+
+    if (this.dateFormat.includes("DD")) {
+      options.day = "2-digit";
+    } else if (this.dateFormat.includes("D")) {
+      options.day = "numeric";
     }
-    
-    if (this.dateFormat.includes('MMMM')) {
-      options.month = 'long';
-    } else if (this.dateFormat.includes('MMM')) {
-      options.month = 'short';
-    } else if (this.dateFormat.includes('MM')) {
-      options.month = '2-digit';
-    } else if (this.dateFormat.includes('M')) {
-      options.month = 'numeric';
+
+    if (this.dateFormat.includes("MMMM")) {
+      options.month = "long";
+    } else if (this.dateFormat.includes("MMM")) {
+      options.month = "short";
+    } else if (this.dateFormat.includes("MM")) {
+      options.month = "2-digit";
+    } else if (this.dateFormat.includes("M")) {
+      options.month = "numeric";
     }
-    
-    if (this.dateFormat.includes('YYYY')) {
-      options.year = 'numeric';
-    } else if (this.dateFormat.includes('YY')) {
-      options.year = '2-digit';
+
+    if (this.dateFormat.includes("YYYY")) {
+      options.year = "numeric";
+    } else if (this.dateFormat.includes("YY")) {
+      options.year = "2-digit";
     }
 
     const formatter = new Intl.DateTimeFormat(lang, options);
@@ -464,18 +517,20 @@ export class SidebarCard extends LitElement {
   }
 
   updateSidebarSize() {
-    const sidebarInner = this.shadowRoot?.querySelector('.sidebar-inner') as HTMLElement | null;
+    const sidebarInner = this.shadowRoot?.querySelector(
+      ".sidebar-inner"
+    ) as HTMLElement | null;
     if (!sidebarInner || !this.config) return;
 
     const headerHeightPx = getHeaderHeightPx();
 
-    sidebarInner.style.width = this.offsetWidth + 'px';
+    sidebarInner.style.width = this.offsetWidth + "px";
 
     if (this.config.hideTopMenu) {
       setTopMenuVisible(false);
 
       sidebarInner.style.height = `${window.innerHeight}px`;
-      sidebarInner.style.top = '0px';
+      sidebarInner.style.top = "0px";
     } else {
       setTopMenuVisible(true);
 
@@ -483,7 +538,6 @@ export class SidebarCard extends LitElement {
       sidebarInner.style.top = headerHeightPx;
     }
   }
-  
 
   firstUpdated() {
     provideHass(this);
@@ -502,26 +556,26 @@ export class SidebarCard extends LitElement {
     // OTTIMIZZATO: Debounce sul resize per evitare lag
     let resizeTimeout: ReturnType<typeof setTimeout> | null = null;
     window.addEventListener(
-      'resize',
+      "resize",
       () => {
         if (resizeTimeout) clearTimeout(resizeTimeout);
         resizeTimeout = setTimeout(() => {
           self.updateSidebarSize();
         }, 100); // 100ms debounce
       },
-      true,
+      true
     );
 
     if (this.bottomCard) {
       setTimeout(() => {
         let card: any = {
-          type: this.bottomCard.type,
+          type: this.bottomCard.type
         };
         card = Object.assign({}, card, this.bottomCard.cardOptions);
-        log2console('firstUpdated', 'Bottom card: ', card);
+        log2console("firstUpdated", "Bottom card: ", card);
 
-        if (!card || typeof card !== 'object' || !card.type) {
-          error2console('firstUpdated', 'Bottom card config error!');
+        if (!card || typeof card !== "object" || !card.type) {
+          error2console("firstUpdated", "Bottom card config error!");
           return;
         }
 
@@ -532,19 +586,19 @@ export class SidebarCard extends LitElement {
           tag = `hui-${tag}-card`;
         }
 
-        const bottomSection = this.shadowRoot!.querySelector('.bottom');
+        const bottomSection = this.shadowRoot!.querySelector(".bottom");
         if (!bottomSection) {
-          error2console('firstUpdated', 'Bottom section not found');
+          error2console("firstUpdated", "Bottom section not found");
           return;
         }
 
         const createAndAttachCard = () => {
           const cardElement: any = document.createElement(tag);
 
-          if (typeof cardElement.setConfig !== 'function') {
+          if (typeof cardElement.setConfig !== "function") {
             error2console(
-              'firstUpdated',
-              `Element "${tag}" for bottomCard does not implement setConfig(). Check type "${card.type}".`,
+              "firstUpdated",
+              `Element "${tag}" for bottomCard does not implement setConfig(). Check type "${card.type}".`
             );
             return;
           }
@@ -554,13 +608,13 @@ export class SidebarCard extends LitElement {
           (bottomSection as HTMLElement).appendChild(cardElement);
           provideHass(cardElement);
 
-          if (this.bottomCard.cardStyle && this.bottomCard.cardStyle !== '') {
+          if (this.bottomCard.cardStyle && this.bottomCard.cardStyle !== "") {
             const style = this.bottomCard.cardStyle;
             let itterations = 0;
             const interval = setInterval(() => {
               if (cardElement && cardElement.shadowRoot) {
                 window.clearInterval(interval);
-                const styleElement = document.createElement('style');
+                const styleElement = document.createElement("style");
                 styleElement.innerHTML = style;
                 cardElement.shadowRoot.appendChild(styleElement);
               } else if (++itterations === 10) {
@@ -577,7 +631,11 @@ export class SidebarCard extends LitElement {
             .whenDefined(tag)
             .then(createAndAttachCard)
             .catch((err: any) => {
-              error2console('firstUpdated', `Error waiting for "${tag}" definition`, err);
+              error2console(
+                "firstUpdated",
+                `Error waiting for "${tag}" definition`,
+                err
+              );
             });
         }
       }, 2);
@@ -587,16 +645,18 @@ export class SidebarCard extends LitElement {
   // OTTIMIZZATO: Cache path per evitare update inutili
   _updateActiveMenu() {
     if (!this.updateMenu) return;
-    
+
     const currentPath = document.location.pathname;
-    
+
     // Skip se stesso path
     if (currentPath === this._lastActivePath) return;
-    
+
     // Rimuovi active da tutti
-    const menuItems = this.shadowRoot!.querySelectorAll('ul.sidebarMenu li[data-type="navigate"]');
+    const menuItems = this.shadowRoot!.querySelectorAll(
+      'ul.sidebarMenu li[data-type="navigate"]'
+    );
     for (let i = 0; i < menuItems.length; i++) {
-      (menuItems[i] as HTMLElement).classList.remove('active');
+      (menuItems[i] as HTMLElement).classList.remove("active");
     }
 
     // Aggiungi active al corrente
@@ -605,9 +665,9 @@ export class SidebarCard extends LitElement {
     ) as HTMLElement | null;
 
     if (activeEl) {
-      activeEl.classList.add('active');
+      activeEl.classList.add("active");
     }
-    
+
     this._lastActivePath = currentPath;
   }
 
@@ -615,62 +675,72 @@ export class SidebarCard extends LitElement {
     const target = ev.target as HTMLElement | null;
     if (!target) return;
 
-    const li = target.closest('li[data-menuitem]') as HTMLElement | null;
+    const li = target.closest("li[data-menuitem]") as HTMLElement | null;
     if (!li) return;
 
-    const menuItemStr = li.getAttribute('data-menuitem');
+    const menuItemStr = li.getAttribute("data-menuitem");
     if (!menuItemStr) return;
 
     const menuItem = JSON.parse(menuItemStr);
     this._customAction(menuItem);
   }
 
-  _evaluateVisibleCondition(template: string | undefined, hassObj: any): boolean {
+  _evaluateVisibleCondition(
+    template: string | undefined,
+    hassObj: any
+  ): boolean {
     if (!template) return true;
 
-    const cleaned = template.trim().replace(/^{{\s*|\s*}}$/g, '').trim();
+    const cleaned = template
+      .trim()
+      .replace(/^{{\s*|\s*}}$/g, "")
+      .trim();
 
     try {
-      const matchState = cleaned.match(/is_state\(['"]([^'"]+)['"],\s*['"]([^'"]+)['"]\)/);
+      const matchState = cleaned.match(
+        /is_state\(['"]([^'"]+)['"],\s*['"]([^'"]+)['"]\)/
+      );
       if (matchState) {
         const [, entityId, expected] = matchState;
         return hassObj.states[entityId]?.state === expected;
       }
 
       const matchAttr = cleaned.match(
-        /is_state_attr\(['"]([^'"]+)['"],\s*['"]([^'"]+)['"],\s*['"]([^'"]+)['"]\)/,
+        /is_state_attr\(['"]([^'"]+)['"],\s*['"]([^'"]+)['"],\s*['"]([^'"]+)['"]\)/
       );
       if (matchAttr) {
         const [, entityId, attr, expected] = matchAttr;
         return hassObj.states[entityId]?.attributes?.[attr] === expected;
       }
 
-      const matchEquals = cleaned.match(/states\[['"]([^'"]+)['"]\]\s*==\s*['"]([^'"]+)['"]/);
+      const matchEquals = cleaned.match(
+        /states\[['"]([^'"]+)['"]\]\s*==\s*['"]([^'"]+)['"]/
+      );
       if (matchEquals) {
         const [, entityId, expected] = matchEquals;
         return hassObj.states[entityId]?.state === expected;
       }
 
       const numericMatch = cleaned.match(
-        /states\[['"]([^'"]+)['"]\]\s*\|\s*(int|float)\s*([<>]=?|==)\s*([\d.]+)/,
+        /states\[['"]([^'"]+)['"]\]\s*\|\s*(int|float)\s*([<>]=?|==)\s*([\d.]+)/
       );
       if (numericMatch) {
         const [, entityId, type, operator, thresholdStr] = numericMatch;
         const raw = hassObj.states[entityId]?.state;
         if (raw === undefined) return false;
-        const num = type === 'float' ? parseFloat(raw) : parseInt(raw, 10);
+        const num = type === "float" ? parseFloat(raw) : parseInt(raw, 10);
         const threshold = parseFloat(thresholdStr);
 
         switch (operator) {
-          case '>':
+          case ">":
             return num > threshold;
-          case '<':
+          case "<":
             return num < threshold;
-          case '>=':
+          case ">=":
             return num >= threshold;
-          case '<=':
+          case "<=":
             return num <= threshold;
-          case '==':
+          case "==":
             return num == threshold;
           default:
             return false;
@@ -678,109 +748,109 @@ export class SidebarCard extends LitElement {
       }
 
       // eslint-disable-next-line no-console
-      console.warn('sidebar-card: could not parse visible template:', cleaned);
+      console.warn("sidebar-card: could not parse visible template:", cleaned);
       return true;
     } catch (err) {
       // eslint-disable-next-line no-console
-      console.error('sidebar-card: visible template evaluation error:', err);
+      console.error("sidebar-card: visible template evaluation error:", err);
       return true;
     }
   }
 
   _customAction(tapAction: any) {
     switch (tapAction.action) {
-      case 'more-info':
+      case "more-info":
         if (tapAction.entity || tapAction.camera_image) {
-          moreInfo(tapAction.entity ? tapAction.entity : tapAction.camera_image!);
+          moreInfo(
+            tapAction.entity ? tapAction.entity : tapAction.camera_image!
+          );
         }
         break;
 
-      case 'navigate':
+      case "navigate":
         if (tapAction.navigation_path) {
           navigate(window, tapAction.navigation_path);
         }
         break;
 
-      case 'url':
+      case "url":
         if (tapAction.url_path) {
           window.open(tapAction.url_path);
         }
         break;
 
-      case 'toggle':
+      case "toggle":
         if (tapAction.entity) {
           toggleEntity(this.hass, tapAction.entity!);
-          forwardHaptic('success');
+          forwardHaptic("success");
         }
         break;
 
-      case 'call-service': {
+      case "call-service": {
         if (!tapAction.service) {
-          forwardHaptic('failure');
+          forwardHaptic("failure");
           return;
         }
-        const [domain, service] = tapAction.service.split('.', 2);
+        const [domain, service] = tapAction.service.split(".", 2);
         this.hass.callService(domain, service, tapAction.service_data);
-        forwardHaptic('success');
+        forwardHaptic("success");
         break;
       }
 
-      case 'service-js': {
+      case "service-js": {
         if (tapAction?.service) {
           try {
             const code = String(tapAction.service).replace(
               /^\[\[\[\s*|\s*\]\]\]$/g,
-              '',
+              ""
             );
             // eslint-disable-next-line no-new-func
             const func = new Function(code);
             func.call(this);
-            forwardHaptic('success');
+            forwardHaptic("success");
           } catch (_err) {
-            forwardHaptic('failure');
+            forwardHaptic("failure");
           }
         } else {
-          forwardHaptic('failure');
+          forwardHaptic("failure");
         }
         break;
       }
 
-      case 'toggle-sidebar': {
+      case "toggle-sidebar": {
         try {
           const w = window as any;
-          if (w && typeof w.silvioToggleHaSidebar === 'function') {
+          if (w && typeof w.silvioToggleHaSidebar === "function") {
             w.silvioToggleHaSidebar();
-            forwardHaptic('success');
+            forwardHaptic("success");
           } else {
-            forwardHaptic('failure');
+            forwardHaptic("failure");
           }
         } catch (_err) {
-          forwardHaptic('failure');
+          forwardHaptic("failure");
         }
         break;
       }
-      
-      case 'toggle-topmenu': {
+
+      case "toggle-topmenu": {
         try {
           const w = window as any;
-          if (w && typeof w.silvioFlipTopMenu === 'function') {
+          if (w && typeof w.silvioFlipTopMenu === "function") {
             w.silvioFlipTopMenu();
           }
 
           // fallback: toggle reale
-          if (w && typeof w.silvioToggleTopMenu === 'function') {
+          if (w && typeof w.silvioToggleTopMenu === "function") {
             w.silvioToggleTopMenu();
-            forwardHaptic('success');
+            forwardHaptic("success");
           } else {
-            forwardHaptic('failure');
+            forwardHaptic("failure");
           }
         } catch (_err) {
-          forwardHaptic('failure');
+          forwardHaptic("failure");
         }
         break;
       }
-      
-      
     }
   }
 
@@ -791,16 +861,15 @@ export class SidebarCard extends LitElement {
       subscribeRenderTemplate(
         null,
         (res: any) => {
-          const regex =
-            /<(?:li|div)(?:\s+(?:class|id)\s*=\s*"([^"]*)")*\s*>([\s\S]*?)<\/(?:li|div)>/g;
+          const regex = /<(?:li|div)(?:\s+(?:class|id)\s*=\s*"([^"]*)")*\s*>([\s\S]*?)<\/(?:li|div)>/g;
           this.templateLines = res.match(regex).map((val: any) => val);
           this.requestUpdate();
         },
         {
           template: this.config.template,
           variables: { config: this.config },
-          entity_ids: this.config.entity_ids,
-        },
+          entity_ids: this.config.entity_ids
+        }
       );
     }
   }
@@ -818,7 +887,10 @@ export class SidebarCard extends LitElement {
         flex-direction: column;
         background-color: var(
           --sidebar-background,
-          var(--paper-listbox-background-color, var(--primary-background-color, #fff))
+          var(
+            --paper-listbox-background-color,
+            var(--primary-background-color, #fff)
+          )
         );
       }
       .sidebar-inner {
@@ -863,7 +935,7 @@ export class SidebarCard extends LitElement {
         color: var(--sidebar-selected-icon-color, rgb(247, 217, 89));
       }
       .sidebarMenu li.active::before {
-        content: '';
+        content: "";
         position: absolute;
         top: 0;
         left: 0;
@@ -927,7 +999,7 @@ export class SidebarCard extends LitElement {
         width: calc(100% - 10px);
         border-radius: 100%;
         background: var(--face-color, #fff);
-        font-family: 'Montserrat';
+        font-family: "Montserrat";
         border: 5px solid var(--face-border-color, #fff);
         box-shadow: inset 2px 3px 8px 0 rgba(0, 0, 0, 0.1);
       }
@@ -1061,16 +1133,21 @@ export class SidebarCard extends LitElement {
       }
 
       .sidebarMenu.sidebarMenu--wide li.sidebar-item-wide.active::before {
-        content: '';
+        content: "";
         position: absolute;
         inset: 0;
         border-radius: inherit;
-        background-color: var(--sidebar-wide-active-bg, var(--sidebar-selected-bg, #111));
+        background-color: var(
+          --sidebar-wide-active-bg,
+          var(--sidebar-selected-bg, #111)
+        );
         opacity: var(--sidebar-wide-active-opacity, 0.14);
         pointer-events: none;
       }
 
-      .sidebarMenu.sidebarMenu--wide li.sidebar-item-wide.active ha-icon.sidebar-icon {
+      .sidebarMenu.sidebarMenu--wide
+        li.sidebar-item-wide.active
+        ha-icon.sidebar-icon {
         color: var(
           --sidebar-wide-active-icon-color,
           var(--sidebar-selected-icon-color, rgb(247, 217, 89))
@@ -1083,8 +1160,13 @@ export class SidebarCard extends LitElement {
         transform: none !important;
       }
 
-      .sidebarMenu.sidebarMenu--wide li.sidebar-item-wide.active .sidebar-label {
-        color: var(--sidebar-wide-active-text-color, var(--sidebar-wide-text-color, #111111));
+      .sidebarMenu.sidebarMenu--wide
+        li.sidebar-item-wide.active
+        .sidebar-label {
+        color: var(
+          --sidebar-wide-active-text-color,
+          var(--sidebar-wide-text-color, #111111)
+        );
       }
 
       /* === STILE MENU "BUTTONS" === */
@@ -1129,7 +1211,9 @@ export class SidebarCard extends LitElement {
         margin: 0;
       }
 
-      .sidebarMenu.sidebarMenu--buttons li.sidebar-item-button .sidebar-icon-wrapper {
+      .sidebarMenu.sidebarMenu--buttons
+        li.sidebar-item-button
+        .sidebar-icon-wrapper {
         width: var(--sidebar-button-box-size, 56px);
         height: var(--sidebar-button-box-size, 56px);
         border-radius: var(--sidebar-button-radius, 18px);
@@ -1140,8 +1224,13 @@ export class SidebarCard extends LitElement {
         flex-shrink: 0;
       }
 
-      .sidebarMenu.sidebarMenu--buttons li.sidebar-item-button ha-icon.sidebar-icon {
-        color: var(--sidebar-button-icon-color, var(--sidebar-icon-color, #000));
+      .sidebarMenu.sidebarMenu--buttons
+        li.sidebar-item-button
+        ha-icon.sidebar-icon {
+        color: var(
+          --sidebar-button-icon-color,
+          var(--sidebar-icon-color, #000)
+        );
         width: var(--sidebar-button-icon-size, 28px);
         height: var(--sidebar-button-icon-size, 28px);
         line-height: 0;
@@ -1154,7 +1243,10 @@ export class SidebarCard extends LitElement {
       .sidebarMenu.sidebarMenu--buttons li.sidebar-item-button .sidebar-label {
         font-size: var(--sidebar-button-font-size, 13px);
         line-height: var(--sidebar-button-line-height, 1.2);
-        color: var(--sidebar-button-text-color, var(--primary-text-color, #000));
+        color: var(
+          --sidebar-button-text-color,
+          var(--primary-text-color, #000)
+        );
         font-weight: var(--sidebar-button-font-weight, 500);
         white-space: nowrap;
         overflow: hidden;
@@ -1165,22 +1257,32 @@ export class SidebarCard extends LitElement {
         content: none !important;
       }
 
-      .sidebarMenu.sidebarMenu--buttons li.sidebar-item-button.active .sidebar-icon-wrapper {
+      .sidebarMenu.sidebarMenu--buttons
+        li.sidebar-item-button.active
+        .sidebar-icon-wrapper {
         border: var(--sidebar-button-active-border-width, 3px) solid
           var(--sidebar-button-active-border-color, #ffffff);
         box-sizing: border-box;
-        box-shadow: 0 0 8px var(--sidebar-button-active-shadow-color, rgba(0, 0, 0, 0.18));
+        box-shadow: 0 0 8px
+          var(--sidebar-button-active-shadow-color, rgba(0, 0, 0, 0.18));
       }
 
-      .sidebarMenu.sidebarMenu--buttons li.sidebar-item-button.active ha-icon.sidebar-icon {
+      .sidebarMenu.sidebarMenu--buttons
+        li.sidebar-item-button.active
+        ha-icon.sidebar-icon {
         color: var(
           --sidebar-button-active-icon-color,
           var(--sidebar-selected-icon-color, rgb(247, 217, 89))
         );
       }
 
-      .sidebarMenu.sidebarMenu--buttons li.sidebar-item-button.active .sidebar-label {
-        color: var(--sidebar-button-active-text-color, var(--sidebar-button-text-color, var(--primary-text-color, #000)));
+      .sidebarMenu.sidebarMenu--buttons
+        li.sidebar-item-button.active
+        .sidebar-label {
+        color: var(
+          --sidebar-button-active-text-color,
+          var(--sidebar-button-text-color, var(--primary-text-color, #000))
+        );
       }
 
       /* === STILE MENU "GRID" === */
@@ -1190,10 +1292,15 @@ export class SidebarCard extends LitElement {
         margin: var(--sidebar-grid-margin-y, 14px) 0;
         padding: 0;
         display: grid;
-        grid-template-columns: repeat(var(--sidebar-grid-columns, 3), minmax(0, 1fr));
+        grid-template-columns: repeat(
+          var(--sidebar-grid-columns, 3),
+          minmax(0, 1fr)
+        );
         grid-auto-rows: var(--sidebar-grid-row-height, 96px);
         gap: var(--sidebar-grid-gap, 12px);
-        max-height: calc(var(--sidebar-grid-row-height, 96px) * var(--sidebar-grid-rows, 2));
+        max-height: calc(
+          var(--sidebar-grid-row-height, 96px) * var(--sidebar-grid-rows, 2)
+        );
         overflow-y: auto;
       }
 
@@ -1210,14 +1317,19 @@ export class SidebarCard extends LitElement {
         position: relative;
       }
 
-      .sidebarMenu.sidebarMenu--grid li.sidebar-item-grid .sidebar-icon-wrapper {
+      .sidebarMenu.sidebarMenu--grid
+        li.sidebar-item-grid
+        .sidebar-icon-wrapper {
         width: var(--sidebar-grid-box-size, 72px);
         height: var(--sidebar-grid-box-size, 72px);
         border-radius: var(--sidebar-grid-radius, 22px);
         display: flex;
         align-items: center;
         justify-content: center;
-        background-color: var(--sidebar-grid-bg, var(--sidebar-button-bg, rgba(255, 255, 255, 0.15)));
+        background-color: var(
+          --sidebar-grid-bg,
+          var(--sidebar-button-bg, rgba(255, 255, 255, 0.15))
+        );
         flex-shrink: 0;
       }
 
@@ -1249,20 +1361,33 @@ export class SidebarCard extends LitElement {
         content: none !important;
       }
 
-      .sidebarMenu.sidebarMenu--grid li.sidebar-item-grid.active .sidebar-icon-wrapper {
-        box-shadow: 0 0 0 2px var(--sidebar-grid-active-border, rgba(255, 255, 255, 0.7));
-        background-color: var(--sidebar-grid-active-bg, var(--sidebar-grid-bg, rgba(255, 255, 255, 0.25)));
+      .sidebarMenu.sidebarMenu--grid
+        li.sidebar-item-grid.active
+        .sidebar-icon-wrapper {
+        box-shadow: 0 0 0 2px
+          var(--sidebar-grid-active-border, rgba(255, 255, 255, 0.7));
+        background-color: var(
+          --sidebar-grid-active-bg,
+          var(--sidebar-grid-bg, rgba(255, 255, 255, 0.25))
+        );
       }
 
-      .sidebarMenu.sidebarMenu--grid li.sidebar-item-grid.active ha-icon.sidebar-icon {
+      .sidebarMenu.sidebarMenu--grid
+        li.sidebar-item-grid.active
+        ha-icon.sidebar-icon {
         color: var(
           --sidebar-grid-active-icon-color,
           var(--sidebar-selected-icon-color, rgb(247, 217, 89))
         );
       }
 
-      .sidebarMenu.sidebarMenu--grid li.sidebar-item-grid.active .sidebar-label {
-        color: var(--sidebar-grid-active-text-color, var(--sidebar-grid-text-color, var(--primary-text-color, #000)));
+      .sidebarMenu.sidebarMenu--grid
+        li.sidebar-item-grid.active
+        .sidebar-label {
+        color: var(
+          --sidebar-grid-active-text-color,
+          var(--sidebar-grid-text-color, var(--primary-text-color, #000))
+        );
       }
     `;
   }
