@@ -715,7 +715,13 @@ async function build() {
           if (headerHost!.style.position !== "sticky") {
             headerHost!.style.position = "sticky";
             headerHost!.style.top = "0px";
-            headerHost!.style.zIndex = "1000";
+            // In modalità "push", usa z-index minimo (1) per stare sopra le card
+            // ma permettere al menu di HA di stare sopra naturalmente
+            if (topMenuMode === "push") {
+              headerHost!.style.zIndex = "1";
+            } else {
+              headerHost!.style.zIndex = "1000";
+            }
           }
         } else {
           if (headerHost!.style.position !== "relative") {
