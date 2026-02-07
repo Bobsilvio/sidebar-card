@@ -29,7 +29,7 @@ import {
   setTopMenuVisible
 } from "./helpers";
 
-const SIDEBAR_CARD_VERSION = "1.2";
+const SIDEBAR_CARD_VERSION = "1.3";
 
 let ALREADY_BUILT = false;
 
@@ -664,6 +664,12 @@ async function build() {
         const prevObs = (window as any)[obsKey] as MutationObserver | undefined;
         if (prevObs) prevObs.disconnect();
         delete (window as any)[obsKey];
+
+        // Pulisci anche il ResizeObserver
+        const resizeObserverKey = obsKey + "_resize";
+        const prevResize = (window as any)[resizeObserverKey] as ResizeObserver | undefined;
+        if (prevResize) prevResize.disconnect();
+        delete (window as any)[resizeObserverKey];
       };
 
       const attachHaHeaderObserver = () => {
@@ -671,10 +677,10 @@ async function build() {
         const haHeaderEl = getHaHeaderEl();
         if (!haHeaderEl) return;
 
-        // OTTIMIZZATO: Throttle più aggressivo per Firefox
+        // OTTIMIZZATO: Throttle per performance
         let layoutScheduled = false;
         let lastCall = 0;
-        const THROTTLE_MS = 200; // Aumentato per ridurre stress
+        const THROTTLE_MS = 100; // Ridotto per essere più reattivo
 
         const scheduleHeaderLayout = () => {
           const now = Date.now();
@@ -687,11 +693,11 @@ async function build() {
           });
         };
 
-        // OTTIMIZZATO: Debounce per burst rapidi di mutations
+        // Mutation observer per cambiamenti di visibility
         let debounceTimeout: ReturnType<typeof setTimeout> | null = null;
         const onMutation = () => {
           if (debounceTimeout) clearTimeout(debounceTimeout);
-          debounceTimeout = setTimeout(scheduleHeaderLayout, 50);
+          debounceTimeout = setTimeout(scheduleHeaderLayout, 30);
         };
 
         const mo = new MutationObserver(onMutation);
@@ -699,9 +705,23 @@ async function build() {
         mo.observe(haHeaderEl, {
           attributes: true,
           attributeFilter: ["style", "class", "hidden"],
-          subtree: false // Riduce costo osservazione
+          subtree: false
         });
         (window as any)[obsKey] = mo;
+
+        // NUOVO: ResizeObserver per monitorare i cambiamenti di altezza in tempo reale
+        if (typeof ResizeObserver !== "undefined") {
+          const resizeObserverKey = obsKey + "_resize";
+          const prevResize = (window as any)[resizeObserverKey] as ResizeObserver | undefined;
+          if (prevResize) prevResize.disconnect();
+
+          const ro = new ResizeObserver(() => {
+            scheduleHeaderLayout();
+          });
+          ro.observe(haHeaderEl);
+          (window as any)[resizeObserverKey] = ro;
+        }
+
         (window as any)[obsKey + "_schedule"] = scheduleHeaderLayout;
       };
 
@@ -849,6 +869,28 @@ async function build() {
       };
       (window as any)[key] = onResize;
       window.addEventListener("resize", onResize, { passive: true });
+
+      // NUOVO: Scroll listener per ricalcolare il padding quando la topbar di HA riappare durante lo scroll
+      const scrollKey = "__sidebarCardHeaderScrollHandler";
+      const prevScroll = (window as any)[scrollKey] as
+        | ((...args: any[]) => void)
+        | undefined;
+      if (prevScroll) window.removeEventListener("scroll", prevScroll, { passive: true } as any);
+
+      let scrollTimeout: ReturnType<typeof setTimeout> | null = null;
+      const onScroll = () => {
+        if (scrollTimeout) clearTimeout(scrollTimeout);
+        scrollTimeout = setTimeout(() => {
+          const scheduleFunc = (window as any)[obsKey + "_schedule"];
+          if (scheduleFunc) {
+            scheduleFunc();
+          } else {
+            applyHeaderLayout();
+          }
+        }, 100);
+      };
+      (window as any)[scrollKey] = onScroll;
+      window.addEventListener("scroll", onScroll, { passive: true });
     }
   } else {
     const headerWrapper = appLayout.querySelector(
@@ -878,10 +920,20 @@ async function build() {
     if (prev) window.removeEventListener("resize", prev);
     delete (window as any)[key];
 
+    const scrollKey = "__sidebarCardHeaderScrollHandler";
+    const prevScroll = (window as any)[scrollKey] as ((...args: any[]) => void) | undefined;
+    if (prevScroll) window.removeEventListener("scroll", prevScroll, { passive: true } as any);
+    delete (window as any)[scrollKey];
+
     const obsKey = "__sidebarCardHaHeaderObserver";
     const prevObs = (window as any)[obsKey] as MutationObserver | undefined;
     if (prevObs) prevObs.disconnect();
     delete (window as any)[obsKey];
+
+    const resizeObserverKey = obsKey + "_resize";
+    const prevResize = (window as any)[resizeObserverKey] as ResizeObserver | undefined;
+    if (prevResize) prevResize.disconnect();
+    delete (window as any)[resizeObserverKey];
   }
 
   ALREADY_BUILT = true;
