@@ -568,10 +568,22 @@ export class SidebarCard extends LitElement {
 
     if (this.bottomCard) {
       setTimeout(() => {
-        let card: any = {
-          type: this.bottomCard.type
-        };
-        card = Object.assign({}, card, this.bottomCard.cardOptions);
+        let card: any;
+        
+        // Supporta entrambe le sintassi:
+        // 1. Con cardOptions: { type: "...", cardOptions: { ... } }
+        // 2. Normale: { type: "...", show_icon: false, ... }
+        if (this.bottomCard.cardOptions) {
+          // Sintassi con cardOptions
+          card = {
+            type: this.bottomCard.type
+          };
+          card = Object.assign({}, card, this.bottomCard.cardOptions);
+        } else {
+          // Sintassi normale - usa direttamente bottomCard
+          card = this.bottomCard;
+        }
+        
         log2console("firstUpdated", "Bottom card: ", card);
 
         if (!card || typeof card !== "object" || !card.type) {
@@ -901,7 +913,8 @@ export class SidebarCard extends LitElement {
         position: fixed;
         width: var(--sidebar-effective-width, 250px);
         max-width: 100%;
-        overflow: hidden auto;
+        height: 100vh;
+        overflow: visible;
         transition: width 0.25s ease;
       }
 
