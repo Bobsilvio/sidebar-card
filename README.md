@@ -66,8 +66,10 @@ A fully‑customisable **Header + Sidebar layout system for Home Assistant**, de
 ## 🖊️ Graphical Editor (Admin only)
 
 <p align="center">
-  <img src="img/setting1.PNG" width="48%">
-  <img src="img/setting2.PNG" width="48%">
+  <img src="img/setting1.png" width="28%">
+
+  
+  <img src="img/setting2.png" width="48%">
 </p>
 
 Administrators have access to a **built-in visual editor** to configure Sidebar and Header without touching the YAML file.
