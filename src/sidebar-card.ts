@@ -6,6 +6,7 @@
 
 import { SidebarCard } from "./SidebarCard";
 import { HeaderCard } from "./HeaderCard";
+import { SidebarCardEditor } from "./SidebarCardEditor";
 
 import { hass, provideHass } from "card-tools/src/hass";
 
@@ -79,15 +80,93 @@ async function buildHeaderCard(container: HTMLElement, config: any) {
   headerEl.hass = hass();
 }
 
+// ------------------------------------------------------------------
+//  TOOLBAR BUTTON: Inietta bottone settings nella toolbar di HA
+//  Lo piazza dentro .action-items accanto alla matita (edit)
+// ------------------------------------------------------------------
+const TOOLBAR_BTN_ID = "sidebar-card-settings-btn";
+
+function injectToolbarButton(lovelace: any) {
+  const hassObj = hass();
+  if (!hassObj?.user?.is_admin) return;
+
+  // Trova hui-root shadowRoot → .toolbar → .action-items
+  const huiRoot = getHuiShadowRoot();
+  if (!huiRoot) {
+    log2console("injectToolbarButton", "hui-root shadowRoot non trovato");
+    return;
+  }
+
+  const actionItems = huiRoot.querySelector(".toolbar .action-items");
+  if (!actionItems) {
+    log2console("injectToolbarButton", ".action-items non trovato nella toolbar");
+    return;
+  }
+
+  // Se già iniettato, non duplicare
+  if (actionItems.querySelector(`#${TOOLBAR_BTN_ID}`)) return;
+
+  // Crea ha-icon-button identico a quelli esistenti
+  const btn = document.createElement("ha-icon-button");
+  btn.id = TOOLBAR_BTN_ID;
+  btn.setAttribute("slot", "actionItems");
+  btn.setAttribute("label", "Sidebar Card Settings");
+  btn.setAttribute("title", "Sidebar Card Settings");
+
+  // Aggiungi l'icona dentro il button
+  const icon = document.createElement("ha-svg-icon");
+  // SVG path per mdi:view-dashboard-edit (dashboard + matita)
+  icon.setAttribute("path",
+    "M21 13.1C20.9 13.1 20.7 13.2 20.6 13.3L19.6 " +
+    "14.3L21.7 16.4L22.7 15.4C22.9 15.2 22.9 14.8 " +
+    "22.7 14.6L21.4 13.3C21.3 13.2 21.2 13.1 21 " +
+    "13.1M19.1 14.9L13 20.9V23H15.1L21.2 16.9L19.1 " +
+    "14.9M21 3H3C1.9 3 1 3.9 1 5V19C1 20.1 1.9 21 " +
+    "3 21H11V19.9L12.1 18.8L12.2 18.7C12.1 18.5 12 " +
+    "18.3 12 18V14C12 13.2 12.3 12.5 12.9 12L17 " +
+    "7.9V7C17 5.9 17.9 5 19 5H21V3M5 7H11V13H5V7M5 " +
+    "15H11V19H5V15M19 5V9H13V5H19Z"
+  );
+  btn.appendChild(icon);
+
+  // Click handler → apri editor
+  btn.addEventListener("click", (e: Event) => {
+    e.stopPropagation();
+    let editor = document.querySelector("sidebar-card-editor") as any;
+    if (!editor) {
+      editor = document.createElement("sidebar-card-editor");
+      document.body.appendChild(editor);
+    }
+    const sidebarCfg = JSON.parse(
+      JSON.stringify(lovelace?.config?.sidebar ?? {})
+    );
+    const headerCfg = JSON.parse(
+      JSON.stringify(lovelace?.config?.header ?? {})
+    );
+    editor.open(sidebarCfg, headerCfg, hassObj);
+  });
+
+  // Inserisci come primo figlio di .action-items (prima del dropdown)
+  actionItems.insertBefore(btn, actionItems.firstChild);
+  log2console("injectToolbarButton", "Bottone settings iniettato nella toolbar HA");
+}
+
 async function build() {
   if (ALREADY_BUILT) return;
 
   const lovelace = await getConfig();
+  // Salva riferimento per l'editor grafico
+  (window as any).__sidebarCardLovelace = lovelace;
+
   const sidebarConfig = lovelace?.config?.sidebar ?? null;
   const headerConfig = lovelace?.config?.header ?? null;
 
+  // Inietta bottone settings nella toolbar HA (sempre, per admin)
+  injectToolbarButton(lovelace);
+
   if (!sidebarConfig && !headerConfig) {
     log2console("build", "No sidebar/header config found");
+    ALREADY_BUILT = true;
     return;
   }
 
@@ -133,16 +212,22 @@ async function build() {
         setHassSidebarVisible(true);
       }
 
-      if (!sidebarConfig.breakpoints) {
-        sidebarConfig.breakpoints = { tablet: 1024, mobile: 768 };
+      // Crea una copia mutable del config: lovelace.config.sidebar può essere
+      // un oggetto frozen/non-extensible dopo un salvataggio via WebSocket.
+      // Mutare l'originale causa "TypeError: can't define property breakpoints:
+      // Object is not extensible".
+      const sidebarCfg = JSON.parse(JSON.stringify(sidebarConfig));
+
+      if (!sidebarCfg.breakpoints) {
+        sidebarCfg.breakpoints = { tablet: 1024, mobile: 768 };
       } else {
-        if (!sidebarConfig.breakpoints.mobile)
-          sidebarConfig.breakpoints.mobile = 768;
-        if (!sidebarConfig.breakpoints.tablet)
-          sidebarConfig.breakpoints.tablet = 1024;
+        if (!sidebarCfg.breakpoints.mobile)
+          sidebarCfg.breakpoints.mobile = 768;
+        if (!sidebarCfg.breakpoints.tablet)
+          sidebarCfg.breakpoints.tablet = 1024;
       }
 
-      const css = createCSS(sidebarConfig, document.body.clientWidth);
+      const css = createCSS(sidebarCfg, document.body.clientWidth);
       const style = document.createElement("style");
       style.id = "customSidebarStyle";
       style.type = "text/css";
@@ -167,10 +252,10 @@ async function build() {
       wrapper.appendChild(sidebar);
       wrapper.appendChild(contentContainer);
 
-      await buildSidebarCard(sidebar, sidebarConfig);
-      subscribeEvents(appLayout, sidebarConfig, contentContainer, sidebar);
+      await buildSidebarCard(sidebar, sidebarCfg);
+      subscribeEvents(appLayout, sidebarCfg, contentContainer, sidebar);
 
-      setTimeout(() => updateStyling(appLayout, sidebarConfig), 1);
+      setTimeout(() => updateStyling(appLayout, sidebarCfg), 1);
     }
   } else if (sidebarConfig) {
     error2console("build", "Error in sidebar width config!");
@@ -944,6 +1029,8 @@ if (!customElements.get("sidebar-card"))
   customElements.define("sidebar-card", SidebarCard);
 if (!customElements.get("header-card"))
   customElements.define("header-card", HeaderCard);
+if (!customElements.get("sidebar-card-editor"))
+  customElements.define("sidebar-card-editor", SidebarCardEditor);
 
 // Init banner
 // eslint-disable-next-line no-console
@@ -956,4 +1043,10 @@ console.info(
 );
 
 build();
-watchLocationChange(build);
+
+// Monitora i cambi di navigazione: se il wrapper viene perso (cambio dashboard),
+// resetta il flag e ricostruisce la sidebar/header.
+watchLocationChange(() => {
+  ALREADY_BUILT = false;
+  build();
+});

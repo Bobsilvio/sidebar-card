@@ -405,6 +405,13 @@ export class SidebarCard extends LitElement {
               </ul>
             `
           : html``}
+        ${this.hass?.user?.is_admin
+          ? html`
+              <div class="settings-gear" @click="${this._openSettings}">
+                <ha-icon icon="mdi:cog"></ha-icon>
+              </div>
+            `
+          : html``}
         ${this.bottomCard
           ? html`
               <div class="bottom"></div>
@@ -413,6 +420,22 @@ export class SidebarCard extends LitElement {
       </div>
     `;
     perfMonitor.end("sidebar-render");
+  }
+
+  _openSettings(ev: Event) {
+    ev.stopPropagation();
+
+    let editor = document.querySelector("sidebar-card-editor") as any;
+    if (!editor) {
+      editor = document.createElement("sidebar-card-editor");
+      document.body.appendChild(editor);
+    }
+
+    const lovelace = (window as any).__sidebarCardLovelace;
+    const sidebarConfig = JSON.parse(JSON.stringify(lovelace?.config?.sidebar ?? {}));
+    const headerConfig = JSON.parse(JSON.stringify(lovelace?.config?.header ?? {}));
+
+    editor.open(sidebarConfig, headerConfig, this.hass);
   }
 
   // OTTIMIZZATO: Usa codice più efficiente e chiaro
@@ -1089,6 +1112,25 @@ export class SidebarCard extends LitElement {
       .bottom {
         display: flex;
         margin-top: auto;
+      }
+
+      /* Settings gear icon */
+      .settings-gear {
+        margin-top: auto;
+        padding: 12px 0;
+        cursor: pointer;
+        opacity: 0.4;
+        transition: opacity 0.2s ease;
+        display: flex;
+        align-items: center;
+        justify-content: center;
+      }
+      .settings-gear:hover {
+        opacity: 1;
+      }
+      .settings-gear ha-icon {
+        color: var(--sidebar-icon-color, var(--secondary-text-color, #727272));
+        --mdc-icon-size: 22px;
       }
 
       /* === STILE MENU "WIDE" === */

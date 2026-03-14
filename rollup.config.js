@@ -25,6 +25,7 @@ export default {
     typescript({
       typescript: require('typescript'),
       objectHashIgnoreUnknownHack: true,
+      cacheRoot: '/tmp/rpt2_sidebar_cache',
       tsconfigOverride: {
         compilerOptions: {
           sourceMap: false, // Disabilita source maps in TypeScript

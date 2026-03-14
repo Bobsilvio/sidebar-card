@@ -758,3 +758,69 @@ if (typeof window !== "undefined") {
   (window as any).setTopMenuVisible = (visible: boolean) =>
     setTopMenuVisible(visible);
 }
+
+// ------------------------------------------------------------------
+//  SAVE LOVELACE CONFIG (per SidebarCardEditor)
+// ------------------------------------------------------------------
+
+export async function saveLovelaceConfig(
+  hassObj: any,
+  sidebarConfig: any,
+  headerConfig: any
+): Promise<void> {
+  // Usa SEMPRE il riferimento lovelace di sidebar-card (il dashboard dove è configurata),
+  // NON getLovelace() che legge il dashboard attualmente visibile (potrebbe essere diverso).
+  const lovelace = (window as any).__sidebarCardLovelace ?? getLovelace();
+  if (!lovelace || !lovelace.config) {
+    throw new Error("sidebar-card: impossibile leggere la configurazione Lovelace corrente");
+  }
+
+  // Controlla se Lovelace è in modalità YAML (non modificabile via WS)
+  if (lovelace.mode === "yaml") {
+    throw new Error(
+      "La configurazione Lovelace è in modalità YAML (ui-lovelace.yaml). " +
+      "Il salvataggio automatico non è supportato: modifica il file manualmente."
+    );
+  }
+
+  const srcConfig = JSON.parse(JSON.stringify(lovelace.config));
+
+  // Ricostruisce il config rispettando l'ordine delle chiavi:
+  //   1. metadati generali (title, icon, background, …)
+  //   2. sidebar  ← aggiunto/sovrascritto qui
+  //   3. header   ← aggiunto/sovrascritto qui
+  //   4. views    ← sempre in fondo
+  // Questo garantisce che sidebar/header appaiano PRIMA di views nel YAML.
+  const fullConfig: Record<string, any> = {};
+
+  // Copia tutto tranne sidebar, header e views
+  for (const key of Object.keys(srcConfig)) {
+    if (key !== "sidebar" && key !== "header" && key !== "views") {
+      fullConfig[key] = srcConfig[key];
+    }
+  }
+
+  // Inserisci sidebar (nuovo o esistente)
+  const newSidebar = sidebarConfig !== undefined ? sidebarConfig : srcConfig.sidebar;
+  if (newSidebar && Object.keys(newSidebar).length > 0) {
+    fullConfig.sidebar = newSidebar;
+  }
+
+  // Inserisci header (nuovo o esistente)
+  const newHeader = headerConfig !== undefined ? headerConfig : srcConfig.header;
+  if (newHeader && Object.keys(newHeader).length > 0) {
+    fullConfig.header = newHeader;
+  }
+
+  // Ripristina views in fondo
+  if (srcConfig.views !== undefined) {
+    fullConfig.views = srcConfig.views;
+  }
+
+  // url_path: null = dashboard predefinito, stringa = dashboard personalizzato
+  await hassObj.callWS({
+    type: "lovelace/config/save",
+    url_path: lovelace.urlPath ?? null,
+    config: fullConfig,
+  });
+}

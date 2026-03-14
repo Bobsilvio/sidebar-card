@@ -59,6 +59,44 @@ A fully‑customisable **Header + Sidebar layout system for Home Assistant**, de
 - Supports any Lovelace card inside header & sidebar
 - Works with kiosk‑mode setups
 - Safe — does **not** hack core Lovelace layout
+- 🆕 **Built-in graphical editor** — configure Sidebar & Header without editing YAML manually
+
+---
+
+## 🖊️ Graphical Editor (Admin only)
+
+Administrators have access to a **built-in visual editor** to configure Sidebar and Header without touching the YAML file.
+
+### How to open it
+
+Two ways:
+
+1. **Toolbar button** — a dashboard-edit icon (🖊) appears in the top-right toolbar of HA when you are logged in as admin. Click it to open the editor panel.
+2. **Gear icon in the sidebar** — a small ⚙ icon at the bottom of the sidebar (visible only to admins) also opens the editor.
+
+### Editor tabs
+
+| Tab | Description |
+|-----|-------------|
+| **Sidebar** | Configure sidebar width, clock, date format, menu style, menu items, bottomCard and custom CSS |
+| **Header** | Configure header height, sticky mode, topMenuMode, card slots (left / center / right), menus and custom CSS |
+| **YAML** | Direct YAML editing of both configs — useful for power users or copy-paste workflows |
+
+### Card editors
+
+All card fields (bottomCard, leftCard, centerCard, rightCard and stack items) use **YAML format** — the same format you already use in Home Assistant. Example:
+
+```yaml
+type: custom:button-card
+entity: light.living_room
+name: Living Room
+icon: mdi:sofa
+```
+
+### Save behaviour
+
+- **Storage mode (default)**: changes are saved directly to Lovelace via WebSocket and the page reloads automatically.
+- **YAML file mode** (`ui-lovelace.yaml`): the editor generates a YAML snippet to copy-paste into your config file.
 
 ---
 
