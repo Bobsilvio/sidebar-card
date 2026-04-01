@@ -75,6 +75,188 @@ const HEADER_MENU_POS_OPTIONS = [
 ];
 
 // -------------------------------------------------------
+//  Traduzioni / Translations
+// -------------------------------------------------------
+const TRANSLATIONS: Record<string, Record<string, string>> = {
+  it: {
+    close: "Chiudi",
+    generate_config: "Genera config",
+    saving: "Salvataggio…",
+    save: "Salva",
+    paste_yaml_hint: "Incolla questo YAML in ui-lovelace.yaml",
+    copied: "Copiato!",
+    copy: "Copia",
+    yaml_replace_hint: "Sostituisci (o aggiungi) le sezioni sidebar: e header: nel tuo file di configurazione Lovelace.",
+    unsaved_confirm: "Hai modifiche non salvate. Chiudere senza salvare?",
+    general: "Generale",
+    enabled: "Abilitato",
+    title: "Titolo",
+    clock_date: "Orologio & Data",
+    analog_clock: "Orologio analogico",
+    digital_clock: "Orologio digitale",
+    with_seconds: "Con secondi",
+    twelve_hour: "Formato 12 ore",
+    show_ampm: "Mostra AM/PM",
+    show_date: "Mostra data",
+    date_format: "Formato data",
+    layout: "Layout",
+    hide_ha_sidebar: "Nascondi sidebar HA",
+    hide_top_menu: "Nascondi top menu",
+    show_top_menu_mobile: "Mostra top menu su mobile",
+    menu_style: "Stile menu",
+    show_labels: "Mostra etichette",
+    update_active_menu: "Aggiorna menu attivo",
+    menu_items: "Voci del Menu",
+    add_item: "Aggiungi voce",
+    bottom_card: "Card in basso (bottomCard)",
+    custom_css: "Stile CSS personalizzato",
+    css_sidebar_hint: "Inserisci CSS che verrà iniettato nella sidebar.",
+    sticky: "Sticky",
+    min_height: "Altezza minima (px)",
+    top_menu_mode: "Modalità Top Menu",
+    mode: "Modalità",
+    flip_duration: "Durata flip (sec)",
+    left_card: "Card Sinistra (leftCard)",
+    center_card: "Card Centro (centerCard)",
+    right_card: "Card Destra (rightCard)",
+    position: "Posizione",
+    items_label: "Voci",
+    left_menu_title: "Menu Icone Sinistra (leftMenu",
+    left_menu_hint: "Bottoni icona visualizzati nell'area sinistra dell'header.",
+    add_icon: "Aggiungi icona",
+    right_menu_title: "Menu Icone Destra (rightMenu",
+    right_menu_hint: "Bottoni icona visualizzati nell'area destra dell'header.",
+    css_header_hint: "Inserisci CSS che verrà iniettato nell'header.",
+    remove_slot: "Rimuovi slot",
+    stack_empty: "Stack vuota — clicca Aggiungi card per iniziare",
+    move_up: "Sposta su",
+    move_down: "Sposta giù",
+    delete_card: "Elimina card",
+    delete: "Elimina",
+    card_yaml_hint: "YAML della card · modifica e clicca fuori (Tab/click) per applicare",
+    add_card: "Aggiungi card",
+    remove_card: "Rimuovi card",
+    remove: "Rimuovi",
+    edit_yaml_hint: "Modifica il YAML e premi Tab/click fuori per applicare.",
+    no_card: "Nessuna card configurata",
+    up: "Su",
+    down: "Giù",
+    unnamed: "(senza nome)",
+    name: "Nome",
+    icon: "Icona",
+    action: "Azione",
+    path: "Percorso",
+    entity: "Entità",
+    service: "Servizio",
+    js_code: "Codice JS",
+    colors_optional: "Colori (opzionale)",
+    background: "Sfondo",
+    text_color: "Testo",
+    advanced: "Avanzato",
+    condition: "Condizione (template)",
+    width_pct: "Larghezza (%)",
+    use_fixed: "Usa valore fisso",
+    responsive: "Responsive",
+    none: "nessuno",
+    remove_title: "Rimuovi",
+    new_item: "Nuovo",
+    save_error: "Errore nel salvataggio: ",
+    yaml_invalid: "YAML non valido: ",
+    no_config: "# nessuna configurazione",
+    items_count: "voci",
+    header_menu: "Menu Header",
+  },
+  en: {
+    close: "Close",
+    generate_config: "Generate config",
+    saving: "Saving…",
+    save: "Save",
+    paste_yaml_hint: "Paste this YAML in ui-lovelace.yaml",
+    copied: "Copied!",
+    copy: "Copy",
+    yaml_replace_hint: "Replace (or add) the sidebar: and header: sections in your Lovelace configuration file.",
+    unsaved_confirm: "You have unsaved changes. Close without saving?",
+    general: "General",
+    enabled: "Enabled",
+    title: "Title",
+    clock_date: "Clock & Date",
+    analog_clock: "Analog clock",
+    digital_clock: "Digital clock",
+    with_seconds: "With seconds",
+    twelve_hour: "12-hour format",
+    show_ampm: "Show AM/PM",
+    show_date: "Show date",
+    date_format: "Date format",
+    layout: "Layout",
+    hide_ha_sidebar: "Hide HA sidebar",
+    hide_top_menu: "Hide top menu",
+    show_top_menu_mobile: "Show top menu on mobile",
+    menu_style: "Menu style",
+    show_labels: "Show labels",
+    update_active_menu: "Update active menu",
+    menu_items: "Menu Items",
+    add_item: "Add item",
+    bottom_card: "Bottom card (bottomCard)",
+    custom_css: "Custom CSS style",
+    css_sidebar_hint: "Enter CSS that will be injected into the sidebar.",
+    sticky: "Sticky",
+    min_height: "Min height (px)",
+    top_menu_mode: "Top Menu Mode",
+    mode: "Mode",
+    flip_duration: "Flip duration (sec)",
+    left_card: "Left card (leftCard)",
+    center_card: "Center card (centerCard)",
+    right_card: "Right card (rightCard)",
+    position: "Position",
+    items_label: "Items",
+    left_menu_title: "Left Icon Menu (leftMenu",
+    left_menu_hint: "Icon buttons displayed in the left area of the header.",
+    add_icon: "Add icon",
+    right_menu_title: "Right Icon Menu (rightMenu",
+    right_menu_hint: "Icon buttons displayed in the right area of the header.",
+    css_header_hint: "Enter CSS that will be injected into the header.",
+    remove_slot: "Remove slot",
+    stack_empty: "Empty stack — click Add card to start",
+    move_up: "Move up",
+    move_down: "Move down",
+    delete_card: "Delete card",
+    delete: "Delete",
+    card_yaml_hint: "Card YAML · edit and click outside (Tab/click) to apply",
+    add_card: "Add card",
+    remove_card: "Remove card",
+    remove: "Remove",
+    edit_yaml_hint: "Edit the YAML and press Tab/click outside to apply.",
+    no_card: "No card configured",
+    up: "Up",
+    down: "Down",
+    unnamed: "(unnamed)",
+    name: "Name",
+    icon: "Icon",
+    action: "Action",
+    path: "Path",
+    entity: "Entity",
+    service: "Service",
+    js_code: "JS Code",
+    colors_optional: "Colors (optional)",
+    background: "Background",
+    text_color: "Text",
+    advanced: "Advanced",
+    condition: "Condition (template)",
+    width_pct: "Width (%)",
+    use_fixed: "Use fixed value",
+    responsive: "Responsive",
+    none: "none",
+    remove_title: "Remove",
+    new_item: "New",
+    save_error: "Save error: ",
+    yaml_invalid: "Invalid YAML: ",
+    no_config: "# no configuration",
+    items_count: "items",
+    header_menu: "Header Menu",
+  },
+};
+
+// -------------------------------------------------------
 //  Helpers per determinare a quale config appartiene un menuKey
 // -------------------------------------------------------
 function menuKeyIsHeader(menuKey: string): boolean {
@@ -167,7 +349,7 @@ export class SidebarCardEditor extends LitElement {
         this._headerConfig = yamlToObj(this._yamlHeaderText) ?? {};
         this._yamlError = null;
       } catch (e: any) {
-        this._yamlError = "YAML non valido: " + e.message;
+        this._yamlError = this._t("yaml_invalid") + e.message;
         return;
       }
     }
@@ -188,7 +370,7 @@ export class SidebarCardEditor extends LitElement {
       window.location.reload();
     } catch (err: any) {
       console.error("sidebar-card-editor: save failed", err);
-      this._saveError = "Errore nel salvataggio: " + (err.message || String(err));
+      this._saveError = this._t("save_error") + (err.message || String(err));
     } finally {
       this._saving = false;
     }
@@ -246,7 +428,7 @@ export class SidebarCardEditor extends LitElement {
       if (out) out += "\n";
       out += "header:\n" + toYaml(this._headerConfig, 2) + "\n";
     }
-    return out || "# nessuna configurazione";
+    return out || this._t("no_config");
   }
 
   async _copyYamlOutput() {
@@ -261,6 +443,16 @@ export class SidebarCardEditor extends LitElement {
     setTimeout(() => { this._copyDone = false; }, 2500);
   }
 
+
+  // =======================================================
+  //  TRANSLATION HELPER
+  // =======================================================
+
+  _t(key: string): string {
+    const lang = (this.hass?.language ?? "it").split("-")[0];
+    const dict = TRANSLATIONS[lang] ?? TRANSLATIONS["en"];
+    return dict[key] ?? TRANSLATIONS["en"][key] ?? key;
+  }
 
   // =======================================================
   //  HELPERS – CONFIG MUTATION
@@ -326,7 +518,7 @@ export class SidebarCardEditor extends LitElement {
     const items = this._getMenuItems(menuKey);
     items.push({
       action: "navigate",
-      name: "Nuovo",
+      name: this._t("new_item"),
       icon: "mdi:home",
       navigation_path: "/lovelace/0",
     });
@@ -365,7 +557,7 @@ export class SidebarCardEditor extends LitElement {
           <!-- Header -->
           <div class="dialog-header">
             <ha-icon-button
-              .label=${"Chiudi"}
+              .label="${this._t("close")}"
               @click="${this.close}"
             >
               <ha-icon icon="mdi:close"></ha-icon>
@@ -376,7 +568,7 @@ export class SidebarCardEditor extends LitElement {
               @click="${this._save}"
               ?disabled="${this._saving || !this._dirty}"
             >
-              ${this._isYamlMode ? "Genera config" : (this._saving ? "Salvataggio…" : "Salva")}
+              ${this._isYamlMode ? this._t("generate_config") : (this._saving ? this._t("saving") : this._t("save"))}
             </button>
           </div>
 
@@ -388,13 +580,13 @@ export class SidebarCardEditor extends LitElement {
             ? html`
                 <div class="yaml-output-panel">
                   <div class="yaml-output-header">
-                    <span>Incolla questo YAML in <code>ui-lovelace.yaml</code></span>
+                    <span>${this._t("paste_yaml_hint")}</span>
                     <button
                       class="copy-btn ${this._copyDone ? "copied" : ""}"
                       @click="${this._copyYamlOutput}"
                     >
                       <ha-icon icon="${this._copyDone ? "mdi:check" : "mdi:content-copy"}"></ha-icon>
-                      ${this._copyDone ? "Copiato!" : "Copia"}
+                      ${this._copyDone ? this._t("copied") : this._t("copy")}
                     </button>
                   </div>
                   <textarea
@@ -403,8 +595,7 @@ export class SidebarCardEditor extends LitElement {
                     .value="${this._yamlOutput}"
                   ></textarea>
                   <div class="yaml-output-hint">
-                    Sostituisci (o aggiungi) le sezioni <code>sidebar:</code> e <code>header:</code>
-                    nel tuo file di configurazione Lovelace.
+                    ${this._t("yaml_replace_hint")}
                   </div>
                 </div>
               `
@@ -446,7 +637,7 @@ export class SidebarCardEditor extends LitElement {
 
   _onOverlayClick() {
     if (this._dirty) {
-      if (confirm("Hai modifiche non salvate. Chiudere senza salvare?")) {
+      if (confirm(this._t("unsaved_confirm"))) {
         this.close();
       }
     } else {
@@ -463,12 +654,12 @@ export class SidebarCardEditor extends LitElement {
     return html`
       <!-- Sezione: Generale -->
       <details open>
-        <summary>Generale</summary>
+        <summary>${this._t("general")}</summary>
         <div class="section">
-          ${this._renderToggle("Abilitato", c.enabled !== false, (v: boolean) =>
+          ${this._renderToggle(this._t("enabled"), c.enabled !== false, (v: boolean) =>
             this._setSidebar("enabled", v)
           )}
-          ${this._renderText("Titolo", c.title || "", (v: string) =>
+          ${this._renderText(this._t("title"), c.title || "", (v: string) =>
             this._setSidebar("title", v)
           )}
           ${this._renderWidthField(c)}
@@ -477,32 +668,32 @@ export class SidebarCardEditor extends LitElement {
 
       <!-- Sezione: Orologio & Data -->
       <details>
-        <summary>Orologio & Data</summary>
+        <summary>${this._t("clock_date")}</summary>
         <div class="section">
-          ${this._renderToggle("Orologio analogico", !!c.clock, (v: boolean) =>
+          ${this._renderToggle(this._t("analog_clock"), !!c.clock, (v: boolean) =>
             this._setSidebar("clock", v)
           )}
-          ${this._renderToggle("Orologio digitale", !!c.digitalClock, (v: boolean) =>
+          ${this._renderToggle(this._t("digital_clock"), !!c.digitalClock, (v: boolean) =>
             this._setSidebar("digitalClock", v)
           )}
           ${c.digitalClock
-            ? this._renderToggle("Con secondi", !!c.digitalClockWithSeconds, (v: boolean) =>
+            ? this._renderToggle(this._t("with_seconds"), !!c.digitalClockWithSeconds, (v: boolean) =>
                 this._setSidebar("digitalClockWithSeconds", v)
               )
             : ""}
-          ${this._renderToggle("Formato 12 ore", !!c.twelveHourVersion, (v: boolean) =>
+          ${this._renderToggle(this._t("twelve_hour"), !!c.twelveHourVersion, (v: boolean) =>
             this._setSidebar("twelveHourVersion", v)
           )}
           ${c.twelveHourVersion
-            ? this._renderToggle("Mostra AM/PM", !!c.period, (v: boolean) =>
+            ? this._renderToggle(this._t("show_ampm"), !!c.period, (v: boolean) =>
                 this._setSidebar("period", v)
               )
             : ""}
-          ${this._renderToggle("Mostra data", c.date !== false, (v: boolean) =>
+          ${this._renderToggle(this._t("show_date"), c.date !== false, (v: boolean) =>
             this._setSidebar("date", v)
           )}
           ${c.date !== false
-            ? this._renderText("Formato data", c.dateFormat || "DD MMMM", (v: string) =>
+            ? this._renderText(this._t("date_format"), c.dateFormat || "DD MMMM", (v: string) =>
                 this._setSidebar("dateFormat", v)
               )
             : ""}
@@ -511,26 +702,26 @@ export class SidebarCardEditor extends LitElement {
 
       <!-- Sezione: Layout -->
       <details>
-        <summary>Layout</summary>
+        <summary>${this._t("layout")}</summary>
         <div class="section">
-          ${this._renderToggle("Nascondi sidebar HA", !!c.hideHassSidebar, (v: boolean) =>
+          ${this._renderToggle(this._t("hide_ha_sidebar"), !!c.hideHassSidebar, (v: boolean) =>
             this._setSidebar("hideHassSidebar", v)
           )}
-          ${this._renderToggle("Nascondi top menu", !!c.hideTopMenu, (v: boolean) =>
+          ${this._renderToggle(this._t("hide_top_menu"), !!c.hideTopMenu, (v: boolean) =>
             this._setSidebar("hideTopMenu", v)
           )}
           ${c.hideTopMenu
-            ? this._renderToggle("Mostra top menu su mobile", c.showTopMenuOnMobile !== false, (v: boolean) =>
+            ? this._renderToggle(this._t("show_top_menu_mobile"), c.showTopMenuOnMobile !== false, (v: boolean) =>
                 this._setSidebar("showTopMenuOnMobile", v)
               )
             : ""}
-          ${this._renderSelect("Stile menu", c.menuStyle || "list", MENU_STYLE_OPTIONS, (v: string) =>
+          ${this._renderSelect(this._t("menu_style"), c.menuStyle || "list", MENU_STYLE_OPTIONS, (v: string) =>
             this._setSidebar("menuStyle", v)
           )}
-          ${this._renderToggle("Mostra etichette", c.showLabel !== false, (v: boolean) =>
+          ${this._renderToggle(this._t("show_labels"), c.showLabel !== false, (v: boolean) =>
             this._setSidebar("showLabel", v)
           )}
-          ${this._renderToggle("Aggiorna menu attivo", c.updateMenu !== false, (v: boolean) =>
+          ${this._renderToggle(this._t("update_active_menu"), c.updateMenu !== false, (v: boolean) =>
             this._setSidebar("updateMenu", v)
           )}
         </div>
@@ -538,11 +729,11 @@ export class SidebarCardEditor extends LitElement {
 
       <!-- Sezione: Menu Items -->
       <details>
-        <summary>Voci del Menu (${(c.sidebarMenu || []).length})</summary>
+        <summary>${this._t("menu_items")} (${(c.sidebarMenu || []).length})</summary>
         <div class="section">
           ${this._renderMenuItems(c.sidebarMenu || [], "sidebarMenu")}
           <button class="add-btn" @click="${() => this._addMenuItem("sidebarMenu")}">
-            <ha-icon icon="mdi:plus"></ha-icon> Aggiungi voce
+            <ha-icon icon="mdi:plus"></ha-icon> ${this._t("add_item")}
           </button>
         </div>
       </details>
@@ -550,7 +741,7 @@ export class SidebarCardEditor extends LitElement {
       <!-- Sezione: Card in fondo alla sidebar -->
       <details>
         <summary>
-          Card in basso (bottomCard)
+          ${this._t("bottom_card")}
           ${c.bottomCard ? html`<span class="slot-badge">${c.bottomCard.type || "?"}</span>` : ""}
         </summary>
         <div class="section">
@@ -564,9 +755,9 @@ export class SidebarCardEditor extends LitElement {
 
       <!-- Sezione: CSS personalizzato -->
       <details>
-        <summary>Stile CSS personalizzato</summary>
+        <summary>${this._t("custom_css")}</summary>
         <div class="section">
-          <div class="css-hint">Inserisci CSS che verrà iniettato nella sidebar.</div>
+          <div class="css-hint">${this._t("css_sidebar_hint")}</div>
           <textarea
             class="yaml-editor css-editor"
             .value="${c.style || ""}"
@@ -592,18 +783,18 @@ export class SidebarCardEditor extends LitElement {
     return html`
       <!-- Sezione: Generale -->
       <details open>
-        <summary>Generale</summary>
+        <summary>${this._t("general")}</summary>
         <div class="section">
-          ${this._renderToggle("Abilitato", c.enabled !== false, (v: boolean) =>
+          ${this._renderToggle(this._t("enabled"), c.enabled !== false, (v: boolean) =>
             this._setHeader("enabled", v)
           )}
-          ${this._renderToggle("Sticky", c.sticky !== false, (v: boolean) =>
+          ${this._renderToggle(this._t("sticky"), c.sticky !== false, (v: boolean) =>
             this._setHeader("sticky", v)
           )}
-          ${this._renderNumber("Altezza minima (px)", c.height || 72, (v: number) =>
+          ${this._renderNumber(this._t("min_height"), c.height || 72, (v: number) =>
             this._setHeader("height", v)
           )}
-          ${this._renderText("Titolo", c.title || "", (v: string) =>
+          ${this._renderText(this._t("title"), c.title || "", (v: string) =>
             this._setHeader("title", v)
           )}
         </div>
@@ -611,13 +802,13 @@ export class SidebarCardEditor extends LitElement {
 
       <!-- Sezione: Top Menu Mode -->
       <details>
-        <summary>Modalità Top Menu</summary>
+        <summary>${this._t("top_menu_mode")}</summary>
         <div class="section">
-          ${this._renderSelect("Modalità", c.topMenuMode || "overlay", TOP_MENU_MODE_OPTIONS, (v: string) =>
+          ${this._renderSelect(this._t("mode"), c.topMenuMode || "overlay", TOP_MENU_MODE_OPTIONS, (v: string) =>
             this._setHeader("topMenuMode", v)
           )}
           ${c.topMenuMode === "flip"
-            ? this._renderNumber("Durata flip (sec)", c.flipDuration || 5, (v: number) =>
+            ? this._renderNumber(this._t("flip_duration"), c.flipDuration || 5, (v: number) =>
                 this._setHeader("flipDuration", v)
               )
             : ""}
@@ -627,7 +818,7 @@ export class SidebarCardEditor extends LitElement {
       <!-- Sezione: Card Slot Sinistra -->
       <details>
         <summary>
-          Card Sinistra (leftCard)
+          ${this._t("left_card")}
           ${c.leftCard ? html`<span class="slot-badge">${c.leftCard.type || "?"}</span>` : ""}
         </summary>
         <div class="section">
@@ -642,7 +833,7 @@ export class SidebarCardEditor extends LitElement {
       <!-- Sezione: Card Slot Centro -->
       <details>
         <summary>
-          Card Centro (centerCard)
+          ${this._t("center_card")}
           ${c.centerCard ? html`<span class="slot-badge">${c.centerCard.type || "?"}</span>` : ""}
         </summary>
         <div class="section">
@@ -657,7 +848,7 @@ export class SidebarCardEditor extends LitElement {
       <!-- Sezione: Card Slot Destra -->
       <details>
         <summary>
-          Card Destra (rightCard)
+          ${this._t("right_card")}
           ${c.rightCard ? html`<span class="slot-badge">${c.rightCard.type || "?"}</span>` : ""}
         </summary>
         <div class="section">
@@ -671,54 +862,54 @@ export class SidebarCardEditor extends LitElement {
 
       <!-- Sezione: Menu Header Centrale -->
       <details>
-        <summary>Menu Header (${(c.headerMenu || []).length} voci)</summary>
+        <summary>${this._t("header_menu")} (${(c.headerMenu || []).length} ${this._t("items_count")})</summary>
         <div class="section">
-          ${this._renderSelect("Stile menu", c.headerMenuStyle || "wide", MENU_STYLE_OPTIONS, (v: string) =>
+          ${this._renderSelect(this._t("menu_style"), c.headerMenuStyle || "wide", MENU_STYLE_OPTIONS, (v: string) =>
             this._setHeader("headerMenuStyle", v)
           )}
-          ${this._renderToggle("Mostra etichette", c.headerMenuShowLabel !== false, (v: boolean) =>
+          ${this._renderToggle(this._t("show_labels"), c.headerMenuShowLabel !== false, (v: boolean) =>
             this._setHeader("headerMenuShowLabel", v)
           )}
-          ${this._renderSelect("Posizione", c.headerMenuPosition || "right", HEADER_MENU_POS_OPTIONS, (v: string) =>
+          ${this._renderSelect(this._t("position"), c.headerMenuPosition || "right", HEADER_MENU_POS_OPTIONS, (v: string) =>
             this._setHeader("headerMenuPosition", v)
           )}
-          <div class="menu-subsection-label">Voci</div>
+          <div class="menu-subsection-label">${this._t("items_label")}</div>
           ${this._renderMenuItems(c.headerMenu || [], "headerMenu")}
           <button class="add-btn" @click="${() => this._addMenuItem("headerMenu")}">
-            <ha-icon icon="mdi:plus"></ha-icon> Aggiungi voce
+            <ha-icon icon="mdi:plus"></ha-icon> ${this._t("add_item")}
           </button>
         </div>
       </details>
 
       <!-- Sezione: Menu icone a sinistra -->
       <details>
-        <summary>Menu Icone Sinistra (leftMenu – ${(c.leftMenu || []).length} voci)</summary>
+        <summary>${this._t("left_menu_title")} – ${(c.leftMenu || []).length} ${this._t("items_count")})</summary>
         <div class="section">
-          <div class="css-hint">Bottoni icona visualizzati nell'area sinistra dell'header.</div>
+          <div class="css-hint">${this._t("left_menu_hint")}</div>
           ${this._renderMenuItems(c.leftMenu || [], "leftMenu")}
           <button class="add-btn" @click="${() => this._addMenuItem("leftMenu")}">
-            <ha-icon icon="mdi:plus"></ha-icon> Aggiungi icona
+            <ha-icon icon="mdi:plus"></ha-icon> ${this._t("add_icon")}
           </button>
         </div>
       </details>
 
       <!-- Sezione: Menu icone a destra -->
       <details>
-        <summary>Menu Icone Destra (rightMenu – ${(c.rightMenu || []).length} voci)</summary>
+        <summary>${this._t("right_menu_title")} – ${(c.rightMenu || []).length} ${this._t("items_count")})</summary>
         <div class="section">
-          <div class="css-hint">Bottoni icona visualizzati nell'area destra dell'header.</div>
+          <div class="css-hint">${this._t("right_menu_hint")}</div>
           ${this._renderMenuItems(c.rightMenu || [], "rightMenu")}
           <button class="add-btn" @click="${() => this._addMenuItem("rightMenu")}">
-            <ha-icon icon="mdi:plus"></ha-icon> Aggiungi icona
+            <ha-icon icon="mdi:plus"></ha-icon> ${this._t("add_icon")}
           </button>
         </div>
       </details>
 
       <!-- Sezione: CSS personalizzato -->
       <details>
-        <summary>Stile CSS personalizzato</summary>
+        <summary>${this._t("custom_css")}</summary>
         <div class="section">
-          <div class="css-hint">Inserisci CSS che verrà iniettato nell'header.</div>
+          <div class="css-hint">${this._t("css_header_hint")}</div>
           <textarea
             class="yaml-editor css-editor"
             .value="${c.style || ""}"
@@ -844,7 +1035,7 @@ export class SidebarCardEditor extends LitElement {
               ? html`
                   <button class="stack-remove-slot-btn" @click="${() => onSet(null)}">
                     <ha-icon icon="mdi:trash-can-outline"></ha-icon>
-                    Rimuovi slot
+                    ${this._t("remove_slot")}
                   </button>
                 `
               : ""}
@@ -854,7 +1045,7 @@ export class SidebarCardEditor extends LitElement {
           ${cards.length === 0 ? html`
             <div class="stack-empty-state">
               <ha-icon icon="mdi:card-plus-outline"></ha-icon>
-              <span>Stack vuota — clicca <strong>Aggiungi card</strong> per iniziare</span>
+              <span>${this._t("stack_empty")}</span>
             </div>
           ` : ""}
 
@@ -875,13 +1066,13 @@ export class SidebarCardEditor extends LitElement {
                     class="stack-move-btn"
                     @click="${(e: Event) => { e.preventDefault(); doMoveCard(idx, -1); }}"
                     ?disabled="${idx === 0}"
-                    title="Sposta su"
+                    title="${this._t("move_up")}"
                   >▲</button>
                   <button
                     class="stack-move-btn"
                     @click="${(e: Event) => { e.preventDefault(); doMoveCard(idx, 1); }}"
                     ?disabled="${idx === cards.length - 1}"
-                    title="Sposta giù"
+                    title="${this._t("move_down")}"
                   >▼</button>
                 </div>
 
@@ -889,10 +1080,10 @@ export class SidebarCardEditor extends LitElement {
                 <button
                   class="stack-delete-btn"
                   @click="${(e: Event) => { e.preventDefault(); doRemoveCard(idx); }}"
-                  title="Elimina card"
+                  title="${this._t("delete_card")}"
                 >
                   <ha-icon icon="mdi:delete"></ha-icon>
-                  Elimina
+                  ${this._t("delete")}
                 </button>
 
                 <!-- Chevron expand -->
@@ -902,7 +1093,7 @@ export class SidebarCardEditor extends LitElement {
               <!-- Corpo: editor YAML -->
               <div class="stack-card-body">
                 <div class="stack-card-body-hint">
-                  YAML della card · modifica e clicca fuori (Tab/click) per applicare
+                  ${this._t("card_yaml_hint")}
                 </div>
                 <textarea
                   class="stack-card-editor"
@@ -918,7 +1109,7 @@ export class SidebarCardEditor extends LitElement {
           <!-- ── Aggiungi card ── -->
           <button class="stack-add-btn" @click="${doAddCard}">
             <ha-icon icon="mdi:plus"></ha-icon>
-            Aggiungi card
+            ${this._t("add_card")}
           </button>
 
         </div>
@@ -942,9 +1133,9 @@ export class SidebarCardEditor extends LitElement {
                   <button
                     class="small-btn danger-btn"
                     @click="${() => onSet(null)}"
-                    title="Rimuovi card"
+                    title="${this._t("remove_card")}"
                   >
-                    <ha-icon icon="mdi:delete"></ha-icon> Rimuovi
+                    <ha-icon icon="mdi:delete"></ha-icon> ${this._t("remove")}
                   </button>
                 </div>
                 <textarea
@@ -961,18 +1152,18 @@ export class SidebarCardEditor extends LitElement {
                   spellcheck="false"
                   rows="6"
                 ></textarea>
-                <div class="card-slot-hint">Modifica il YAML e premi Tab/click fuori per applicare.</div>
+                <div class="card-slot-hint">${this._t("edit_yaml_hint")}</div>
               </div>
             `
           : html`
               <div class="card-slot-empty">
                 <ha-icon icon="mdi:card-plus-outline" class="card-slot-empty-icon"></ha-icon>
-                <span>Nessuna card configurata</span>
+                <span>${this._t("no_card")}</span>
                 <button
                   class="small-btn"
                   @click="${() => onSet({ type: fixedType ?? "custom:my-card" })}"
                 >
-                  <ha-icon icon="mdi:plus"></ha-icon> Aggiungi card
+                  <ha-icon icon="mdi:plus"></ha-icon> ${this._t("add_card")}
                 </button>
               </div>
             `}
@@ -999,14 +1190,14 @@ export class SidebarCardEditor extends LitElement {
               }}">
                 <div class="menu-item-arrows">
                   <ha-icon-button
-                    .label=${"Su"}
+                    .label="${this._t("up")}"
                     @click="${(e: Event) => { e.stopPropagation(); this._moveMenuItem(menuKey, idx, -1); }}"
                     ?disabled="${idx === 0}"
                   >
                     <ha-icon icon="mdi:arrow-up"></ha-icon>
                   </ha-icon-button>
                   <ha-icon-button
-                    .label=${"Giù"}
+                    .label="${this._t("down")}"
                     @click="${(e: Event) => { e.stopPropagation(); this._moveMenuItem(menuKey, idx, 1); }}"
                     ?disabled="${idx === items.length - 1}"
                   >
@@ -1017,10 +1208,10 @@ export class SidebarCardEditor extends LitElement {
                   class="menu-item-icon"
                   icon="${item.icon || "mdi:help-circle"}"
                 ></ha-icon>
-                <span class="menu-item-name">${item.name || "(senza nome)"}</span>
+                <span class="menu-item-name">${item.name || this._t("unnamed")}</span>
                 <span class="menu-item-action-badge">${item.action || "navigate"}</span>
                 <ha-icon-button
-                  .label=${"Elimina"}
+                  .label="${this._t("delete")}"
                   class="delete-btn"
                   @click="${(e: Event) => { e.stopPropagation(); this._removeMenuItem(menuKey, idx); }}"
                 >
@@ -1047,10 +1238,10 @@ export class SidebarCardEditor extends LitElement {
 
     return html`
       <div class="menu-item-detail">
-        ${this._renderText("Nome", item.name || "", (v: string) => set("name", v))}
+        ${this._renderText(this._t("name"), item.name || "", (v: string) => set("name", v))}
 
         <div class="field-row">
-          <label>Icona</label>
+          <label>${this._t("icon")}</label>
           <div class="icon-picker-row">
             <ha-icon icon="${item.icon || "mdi:home"}"></ha-icon>
             <input
@@ -1063,23 +1254,23 @@ export class SidebarCardEditor extends LitElement {
           </div>
         </div>
 
-        ${this._renderSelect("Azione", action, ACTION_OPTIONS, (v: string) => set("action", v))}
+        ${this._renderSelect(this._t("action"), action, ACTION_OPTIONS, (v: string) => set("action", v))}
 
         ${action === "navigate"
-          ? this._renderText("Percorso", item.navigation_path || "", (v: string) =>
+          ? this._renderText(this._t("path"), item.navigation_path || "", (v: string) =>
               set("navigation_path", v)
             )
           : ""}
 
         ${action === "toggle" || action === "more-info"
-          ? this._renderText("Entità", item.entity || "", (v: string) =>
+          ? this._renderText(this._t("entity"), item.entity || "", (v: string) =>
               set("entity", v)
             )
           : ""}
 
         ${action === "call-service"
           ? html`
-              ${this._renderText("Servizio", item.service || "", (v: string) =>
+              ${this._renderText(this._t("service"), item.service || "", (v: string) =>
                 set("service", v)
               )}
               <div class="field-row">
@@ -1102,7 +1293,7 @@ export class SidebarCardEditor extends LitElement {
         ${action === "service-js"
           ? html`
               <div class="field-row">
-                <label>Codice JS</label>
+                <label>${this._t("js_code")}</label>
                 <textarea
                   class="service-data-editor"
                   .value="${item.service || ""}"
@@ -1123,15 +1314,15 @@ export class SidebarCardEditor extends LitElement {
 
         <!-- Colori -->
         <details class="color-section">
-          <summary>Colori (opzionale)</summary>
+          <summary>${this._t("colors_optional")}</summary>
           <div class="color-fields">
-            ${this._renderColor("Sfondo", item.background_color || "", (v: string) =>
+            ${this._renderColor(this._t("background"), item.background_color || "", (v: string) =>
               set("background_color", v || undefined)
             )}
-            ${this._renderColor("Icona", item.icon_color || "", (v: string) =>
+            ${this._renderColor(this._t("icon"), item.icon_color || "", (v: string) =>
               set("icon_color", v || undefined)
             )}
-            ${this._renderColor("Testo", item.text_color || "", (v: string) =>
+            ${this._renderColor(this._t("text_color"), item.text_color || "", (v: string) =>
               set("text_color", v || undefined)
             )}
           </div>
@@ -1139,12 +1330,12 @@ export class SidebarCardEditor extends LitElement {
 
         <!-- Stato & Condizionale (avanzato) -->
         <details class="advanced-section">
-          <summary>Avanzato</summary>
+          <summary>${this._t("advanced")}</summary>
           <div class="section">
             ${this._renderText("State entity", item.state || "", (v: string) =>
               set("state", v)
             )}
-            ${this._renderText("Condizione (template)", item.conditional || "", (v: string) =>
+            ${this._renderText(this._t("condition"), item.conditional || "", (v: string) =>
               set("conditional", v)
             )}
           </div>
@@ -1231,11 +1422,11 @@ export class SidebarCardEditor extends LitElement {
             type="text"
             class="color-text"
             .value="${value}"
-            placeholder="nessuno"
+            placeholder="${this._t("none")}"
             @change="${(e: Event) => onChange((e.target as HTMLInputElement).value)}"
           />
           ${value
-            ? html`<button class="color-clear" @click="${() => onChange("")}" title="Rimuovi">✕</button>`
+            ? html`<button class="color-clear" @click="${() => onChange("")}" title="${this._t("remove_title")}">✕</button>`
             : ""}
         </div>
       </div>
@@ -1248,7 +1439,7 @@ export class SidebarCardEditor extends LitElement {
 
     return html`
       <div class="field-row">
-        <label>Larghezza (%)</label>
+        <label>${this._t("width_pct")}</label>
         <div class="width-control">
           ${isResponsive
             ? html`
@@ -1278,7 +1469,7 @@ export class SidebarCardEditor extends LitElement {
                       }}" />
                   </div>
                   <button class="small-btn" @click="${() => this._setSidebar("width", width.desktop ?? 18)}">
-                    Usa valore fisso
+                    ${this._t("use_fixed")}
                   </button>
                 </div>
               `
@@ -1288,7 +1479,7 @@ export class SidebarCardEditor extends LitElement {
                     this._setSidebar("width", Number((e.target as HTMLInputElement).value))}" />
                 <button class="small-btn" @click="${() =>
                   this._setSidebar("width", { mobile: 0, tablet: width ?? 16, desktop: width ?? 18 })}">
-                  Responsive
+                  ${this._t("responsive")}
                 </button>
               `}
         </div>
